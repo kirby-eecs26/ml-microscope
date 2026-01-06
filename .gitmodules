@@ -4,3 +4,6 @@
 [submodule "apps/openflexure/microscope"]
 	path = apps/openflexure/microscope
 	url = https://gitlab.com/openflexure/openflexure-microscope.git
+[submodule "apps/openflexure/server"]
+	path = apps/openflexure/server
+	url = https://gitlab.com/openflexure/openflexure-microscope-server.git
