@@ -1,0 +1,3 @@
+[submodule "apps/openflexure/connect"]
+	path = apps/openflexure/connect
+	url = https://gitlab.com/openflexure/openflexure-connect.git
