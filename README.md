@@ -1,8 +1,8 @@
-# Microscope with Machine Learning Capabilities
+# OpenFlexure ML Microscope
 
-UC Irvine EECS 2026 Capstone Project.
+**UC Irvine EECS 2026 Capstone Project**
 
-This microscope captures cell images and uses AI/ML modeling to automate the tedious task of cell counting for biologists.
+Microscope system that captures cell images and uses AI/ML image analysis to automate the task of cell counting for biologists, based on OpenFlexure framework.
 
 ## Overview
 
