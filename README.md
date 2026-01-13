@@ -18,44 +18,38 @@ Microscope system that captures cell images and uses AI/ML image analysis to aut
 ```text
 ml-microscope/
 ├── apps/
-│   ├── openflexure/    # Submodules from official OpenFlexure repos
-│   |   ├── connect       # https://gitlab.com/openflexure/openflexure-connect.git
-│   |   ├── microscope    # https://gitlab.com/openflexure/openflexure-microscope.git
-│   |   └── server/       # https://gitlab.com/openflexure/openflexure-microscope-server.git
-│   └── webapp/         # Our custom UI (Vue/React/vanilla)
+│   ├── openflexure/   # Submodules from official OpenFlexure repos
+│   │   ├── connect      # https://gitlab.com/openflexure/openflexure-connect.git
+│   │   ├── microscope   # https://gitlab.com/openflexure/openflexure-microscope.git
+│   │   └── server/      # https://gitlab.com/openflexure/openflexure-microscope-server.git
+│   └── webapp/
 │       ├── public/
-│       │   └── version.json  # Version doc; generated on deploy
 │       └── src/
-│
+├── docs/
+├── environments/      # SDLC phases
+│   ├── development/
+│   ├── staging/
+│   └── production/
+├── experiments/       # Sandboxes, never deployed
+│   ├── backend/
+│   ├── cv/
+│   ├── hardware/
+│   ├── info-architecture/
+│   └── ui/
 ├── packages/
 │   └── python/
-│       ├── analysis/  # Consolidated cell counting + timelapse (ex-CV/ML)
-│       ├── common/    # Tiny shared utils (logging, config, etc.)
-│       └── stage/     # Calibration, kinematics
-│
-├── dev/                       # Experiments, never deployed
-│   ├── backend-experiments/
-│   ├── hardware-integration/
-│   ├── ui-prototypes/
-│   └── vision-experiments/
-│
-├── scripts/                      # Deploy & tools
-│   ├── deploy-to-pi.sh
-│   └── generate-version-json.sh  # Generates version.json in webapp/public
-│
+│       ├── analysis/  # Cell counting + timelapse
+│       ├── common/    # Share utils (logging, config, etc.)
+│       └── pipeline/  # Kinematics and device calibration
+├── scripts/           # Scripts for depolyment and other automation
 ├── tests/
-│   ├── e2e/          # End-to-end (e2e); system module connectivity
-│   ├── fixtures/     # Dummy data for testing
-│   ├── integration/  # Multi-system workflows (e.g., server -> webapp -> hardware actuators)
-│   └── unit/         # Isolated module tests
-├── docs/
-├── .github/workflows/  # Continuous integration (CI); Automatically test and build project after code changes
-├── CODEOWNERS
-├── pyproject.toml  # Log of current packages
-├── poetry.lock     # Package definitions (auto-generated)
-├── package.json    # Frontend dependencies (e.g., Vue) and build scripts
-├── README.md       # Layout diagram + quick start
-└── .gitmodules     # Submodule references
+│   ├── unit/
+│   ├── integration/
+│   ├── e2e/
+│   └── fixtures/
+├── .gitignore
+├── .gitmodules
+└── README.md
 ```
 
 ## Quick Start Instructions
