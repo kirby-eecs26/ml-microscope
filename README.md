@@ -49,6 +49,7 @@ ml-microscope/
 │   └── fixtures/
 ├── .gitignore
 ├── .gitmodules
+├── LICENSE
 └── README.md
 ```
 
