@@ -18,35 +18,43 @@ Microscope system that captures cell images and uses AI/ML image analysis to aut
 ```text
 ml-microscope/
 ├── apps/
-│   ├── openflexure/   # Submodules from official OpenFlexure repos
-│   │   ├── connect      # https://gitlab.com/openflexure/openflexure-connect.git
-│   │   ├── microscope   # https://gitlab.com/openflexure/openflexure-microscope.git
-│   │   └── server/      # https://gitlab.com/openflexure/openflexure-microscope-server.git
-│   └── webapp/
+│   ├── openflexure/      # Submodules from official OpenFlexure repos for reference
+│   │   ├── connect         # https://gitlab.com/openflexure/openflexure-connect.git
+│   │   ├── microscope      # https://gitlab.com/openflexure/openflexure-microscope.git
+│   │   └── server/         # https://gitlab.com/openflexure/openflexure-microscope-server.git
+│   │
+│   └── webapp/           # Capstone microscope GUI
 │       ├── public/
 │       └── src/
-├── docs/
-├── environments/      # SDLC phases
-│   ├── development/
-│   ├── staging/
-│   └── production/
-├── experiments/       # Sandboxes, never deployed
+│
+├── docs/                 # Documentation (e.g., device instructions)
+│
+├── environments/         # Software development lifecycle (SDLC) phases
+│   ├── development/        # Upcoming release in virtual environment
+│   ├── staging/            # Upcoming release in hardware testing environment
+│   └── production/         # Deployed release
+│
+├── experiments/          # Sandboxes, never deployed
 │   ├── backend/
 │   ├── cv/
 │   ├── hardware/
-│   ├── info-architecture/
+│   ├── devops/           # Repo & deployment-specific components
 │   └── ui/
+│
 ├── packages/
 │   └── python/
-│       ├── analysis/  # Cell counting + timelapse
-│       ├── common/    # Share utils (logging, config, etc.)
-│       └── pipeline/  # Kinematics and device calibration
-├── scripts/           # Scripts for depolyment and other automation
+│       ├── analysis/     # Libraries for cell counting + timelapse
+│       ├── common/       # Global libraries for logging, config, etc.
+│       └── openflexure/  # Libraries to support core features (kinematics, camera, etc.)
+│
+├── scripts/              # Scripts for depolyment and other automation
+│
 ├── tests/
-│   ├── unit/
-│   ├── integration/
-│   ├── e2e/
-│   └── fixtures/
+│   ├── unit/             # One isolated module
+│   ├── integration/      # Multiple modules, possibly across multiple teams
+│   ├── e2e/              # End-to-end; comprehensive test for entire system
+│   └── fixtures/         # Shared testing resources (e.g., common test image library)
+│
 ├── .gitignore
 ├── .gitmodules
 ├── LICENSE
