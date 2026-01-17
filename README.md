@@ -17,43 +17,42 @@ Microscope system that captures cell images and uses AI/ML image analysis to aut
 
 ```text
 ml-microscope/
-├── apps/
-│   ├── openflexure/      # Submodules from official OpenFlexure repos for reference
-│   │   ├── connect         # https://gitlab.com/openflexure/openflexure-connect.git
-│   │   ├── microscope      # https://gitlab.com/openflexure/openflexure-microscope.git
-│   │   └── server/         # https://gitlab.com/openflexure/openflexure-microscope-server.git
-│   │
-│   └── webapp/           # Capstone microscope GUI
-│       ├── public/
-│       └── src/
 │
-├── docs/                 # Documentation (e.g., device instructions)
+├── backend/            # Python service layer (API)
 │
-├── environments/         # Software development lifecycle (SDLC) phases
-│   ├── development/        # Upcoming release in virtual environment
-│   ├── staging/            # Upcoming release in hardware testing environment
-│   └── production/         # Deployed release
+├── build/              # Desktop runtime and app packaging
 │
-├── experiments/          # Sandboxes, never deployed
-│   ├── backend/
+├── config/             # Client configuration (e.g., connection profile, save path, etc.)
+│
+├── docs/
+│
+├── libraries/          # Python (or other) libraries
+│
+├── public/             # Static assets (e.g., favicon.ico) 
+│
+├── sandbox/            # Experimental features, never deployed
 │   ├── cv/
-│   ├── hardware/
-│   ├── devops/           # Repo & deployment-specific components
+│   ├── hw/               # 'hardware'
+│   ├── ml/
+│   ├── svc/              # 'backend services'
 │   └── ui/
 │
-├── packages/
-│   └── python/
-│       ├── analysis/     # Libraries for cell counting + timelapse
-│       ├── common/       # Global libraries for logging, config, etc.
-│       └── openflexure/  # Libraries to support core features (kinematics, camera, etc.)
+├── scripts/
 │
-├── scripts/              # Scripts for depolyment and other automation
+├── src/                # App GUI source (Vue layer)
+│
+├── submodules/
+│   └── openflexure/    # Official OpenFlexure repos for reference
+│       ├── connect       # https://gitlab.com/openflexure/openflexure-connect.git
+│       ├── microscope    # https://gitlab.com/openflexure/openflexure-microscope.git
+│       └── server/       # https://gitlab.com/openflexure/openflexure-microscope-server.git
 │
 ├── tests/
-│   ├── unit/             # One isolated module
-│   ├── integration/      # Multiple modules, possibly across multiple teams
-│   ├── e2e/              # End-to-end; comprehensive test for entire system
-│   └── fixtures/         # Shared testing resources (e.g., common test image library)
+│   ├── fixtures/       # Shared testing resources (e.g., common test image library)
+│   ├── integration/    # Multiple connected modules; workflow testing
+│   ├── e2e/            # End-to-end; comprehensive pre-deployment test
+│   ├── smoke/          # Post-deployment test of critical features
+│   └── unit/           # Single isolated module
 │
 ├── .gitignore
 ├── .gitmodules
