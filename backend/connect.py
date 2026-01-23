@@ -1,12 +1,12 @@
 import requests
 import error
-
+print("connect.py is running")
 #i put double spaces to distinguish between the functions
 
 API_BASE = "http://microscope.local:5000/" #we can either put the last "/" here or at
                                             # hte beginning of the extensions, unsure which would be preferred
 
-def apiConnect(ip, timeout = 2.0):
+def apiConnect(timeout = 2.0):
     """plan: take in the microscope ip for connection and connect to the API.
     prints conformation if 200 returns raises; error if not"""
     try:
@@ -20,12 +20,19 @@ def apiConnect(ip, timeout = 2.0):
     except error.APIConnectionError as e:
         print(e.message)
 
+    except requests.RequestException as e:
+        print("Microscope not found or could not connect")
 
-def camConnect(ip, timeout = 2.0):
+
+def camConnect(timeout = 2.0):
     """plan: take in the microscope ip for connection and conforms camera functionality.
     prints conformation if (success code) returns; raises error if not"""
     try:
-        response = requests.get(f"{API_BASE}api/v2/streams/mjpeg", timeout=timeout)
+        response = requests.get(
+            f"{API_BASE}api/v2/streams/mjpeg",
+            timeout=timeout,
+            stream=True
+        )
 
         if response.status_code == 200: #change for correct camrea respons
             print("camera connection :)")
@@ -34,6 +41,9 @@ def camConnect(ip, timeout = 2.0):
 
     except error.CameraConnectionError as e:
         print(e.message)
+
+    except requests.RequestException as e:
+        print("Microscope camera not found or malfunction")
 
 
 def disconnect(ip):
@@ -49,3 +59,7 @@ def disconnect(ip):
 
     except error.APIDisconnectionError as e:
         print("Could not disconnect :(" + e.message)
+
+if __name__ == "__main__":
+    apiConnect()
+    camConnect()
