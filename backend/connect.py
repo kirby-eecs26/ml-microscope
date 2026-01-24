@@ -1,13 +1,17 @@
+#connect.py
+#Establish api connection
+
 import requests
 import error
+import json #?? precaution
+from libraries import GlobalVariables
 print("connect.py is running")
-#i put double spaces to distinguish between the functions
 
-API_BASE = "http://microscope.local:5000/" #we can either put the last "/" here or at
-                                            # hte beginning of the extensions, unsure which would be preferred
+API_BASE = "http://microscope.local:5000/" #we can either put the last "/" here or at        i think this is best
+                                            # hte beginning of the extensions,
 
 def apiConnect(timeout = 2.0):
-    """plan: take in the microscope ip for connection and connect to the API.
+    """plan: take in the microscope ip? for connection and connect to the API.
     prints conformation if 200 returns raises; error if not"""
     try:
         response = requests.get(f"{API_BASE}api/v2", timeout=timeout)
@@ -25,7 +29,7 @@ def apiConnect(timeout = 2.0):
 
 
 def camConnect(timeout = 2.0):
-    """plan: take in the microscope ip for connection and conforms camera functionality.
+    """plan: take in the microscope ip? for connection and conforms camera functionality.
     prints conformation if (success code) returns; raises error if not"""
     try:
         response = requests.get(
@@ -46,7 +50,7 @@ def camConnect(timeout = 2.0):
         print("Microscope camera not found or malfunction")
 
 
-def disconnect(ip):
+def disconnect():
     """plan: take in the microscope ip for connection and disconnect to the API.
     prints conformation if (success code) returns; raises error if not"""
     try:

@@ -1,3 +1,4 @@
+#error.py
 #Custom exceptions
 
 class APIConnectionError(Exception):
