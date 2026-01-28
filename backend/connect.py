@@ -47,22 +47,22 @@ def camConnect(timeout = 2.0):
         print("Microscope camera not found or malfunction")
 
 
-def restart(timeout = 2.0):
-    """plan: take in the microscope ip? for connection and conforms camera functionality.
-       prints conformation if (success code) returns; raises error if not"""
-    try:
-        response = requests.get(f"{API_BASE}", timeout=timeout)
-
-        if response.status_code == 200:  # change for correct camrea respons
-            print("camera connection :)")
-        else:
-            raise error.CameraConnectionError(response.status_code)
-
-    except error.CameraConnectionError as e:
-        print(e.message)
-
-    except requests.RequestException as e:
-        print("Microscope camera not found or malfunction")
+#def restart(timeout = 2.0):
+ #   """plan: take in the microscope ip? for connection and conforms camera functionality.
+  #     prints conformation if (success code) returns; raises error if not"""
+   # try:
+    #    response = requests.get(f"{API_BASE}", timeout=timeout)
+#
+ #       if response.status_code == 200:  # change for correct camrea respons
+  #          print("camera connection :)")
+   #     else:
+    #        raise error.CameraConnectionError(response.status_code)
+#
+ #   except error.CameraConnectionError as e:
+  #      print(e.message)
+#
+ #   except requests.RequestException as e:
+  #      print("Microscope camera not found or malfunction")
 
 
 def disconnect():
