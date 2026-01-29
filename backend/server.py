@@ -148,6 +148,9 @@ def getImg(): #-> jpeg?
     except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
         print("Camera error: could not take img")
 
+def mjpeg_stream_url():
+    return f"{API_BASE}api/v2/streams/mjpeg"
+
 
 def getVideo(minutes: int, frames: int) -> list:
     print("getVideo")
