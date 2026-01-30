@@ -57,6 +57,7 @@ ml-microscope/
 ├── .gitignore
 ├── .gitmodules
 ├── LICENSE
+├── requirements.txt    # List of required third-party Python libraries
 └── README.md
 ```
 

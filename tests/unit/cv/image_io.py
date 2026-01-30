@@ -13,7 +13,6 @@ import os
 import numpy as np
 import cv2 # opencv-python-headless
 
-
 # ======================================================================
 # Load and Save JPEG files.
 # ======================================================================
