@@ -7,6 +7,7 @@
 import time
 import math
 from ctypes.wintypes import tagMSG
+from http.client import responses
 
 import numpy as np
 import json
@@ -31,14 +32,11 @@ def checkCords(x, y, z) -> bool:
     print("checkCords")
 
     d = math.sqrt(x**2 + y**2)
-    if (d <= POS_X_BOUND):
-        return True
-    elif(NEG_X_BOUND <= x <= POS_X_BOUND):
-        return True
-    elif(NEG_Y_BOUND <= y <= POS_Y_BOUND):
-        return True
-    elif(NEG_Z_BOUND >= z >= POS_Z_BOUND):
-        return True
+    if d <= POS_X_BOUND:
+        if NEG_Z_BOUND >= z >= POS_Z_BOUND:
+            return True
+        else:
+            return False
     else:
         return False
 
@@ -49,7 +47,7 @@ def checkCords(x, y, z) -> bool:
 def moveButton(x: int, y: int, z: int, timeout = 2.0):
     print("move")
     try:
-        if(checkCords(x, y, z)):
+        if checkCords(x, y, z):
             payload = {
                 "x": x,
                 "y": y,
@@ -88,7 +86,7 @@ def getImg(payload: dict, timeout = 2.0): #-> jpeg?
 def listCaptures(timeout = 2.0):
     print("listCaptures")
     try:
-        response = requests.get(f"{API_BASE}api/v2/captures", timeout=timeout)
+        response = requests.get(f"{API_BASE}api/v2/actions/camera/get", timeout=timeout)
         response.raise_for_status()
         return response.json()
 
@@ -97,7 +95,10 @@ def listCaptures(timeout = 2.0):
 
 
 def mjpeg_stream_url():
-    return f"{API_BASE}api/v2/streams/mjpeg"
+    try:
+        return f"{API_BASE}api/v2/streams/mjpeg"
+    except requests.exceptions.ConnectionError:
+        print("Camera error: could not stream mjpeg")
 
 
 def getVideo(minutes: int, frames: int) -> list:
