@@ -27,6 +27,13 @@ from libraries.GlobalVariables import (API_BASE, XY_STEPSIZE, Z_STEPSIZE, NEG_X_
 #     except Exception as e:
 #         print("Error getting current postion")
 
+def apiHealth(timeout=2.0) -> bool:
+    try:
+        response = requests.get(f"{API_BASE}api/v2", timeout=timeout)
+        return response.status_code == 200
+    except requests.RequestException:
+        return False
+
 
 def checkCords(x, y, z) -> bool:
     print("checkCords")
@@ -57,6 +64,7 @@ def moveButton(x: int, y: int, z: int, timeout = 2.0):
 
             print("Cords moved")
             response = requests.post(f"{API_BASE}api/v2/actions/stage/move", json=payload, timeout=timeout)
+            response.raise_for_status()
             return response.json()
 
         else:
@@ -73,11 +81,11 @@ def getImg(payload: dict, timeout = 2.0): #-> jpeg?
         response = requests.post(f"{API_BASE}api/v2/actions/camera/capture", json=payload, timeout=timeout)
         response.raise_for_status()
 
-        captureList = requests.get(f"{API_BASE}api/v2/actions/camera/get", timeout=timeout)
+        captureList = requests.get(f"{API_BASE}api/v2/captures", timeout=timeout)
         captureList.raise_for_status()
         allcaptures = captureList.json()
 
-        return allcaptures[-1] #returns last taken picture
+        return allcaptures[-1] #returns dict of last picture taken
 
     except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
         print("Camera error: could not take img")
