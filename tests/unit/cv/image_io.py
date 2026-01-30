@@ -3,16 +3,20 @@
 #
 # Helper module for preprocess_test.py
 # Creates test input RGB NumPy tensors from color JPEG images.
-# Creates B&W JPEG images from test output for validation.
+# Creates optional NumPy and B&W JPEG output for validation.
 #
-# Input:  Color JPEG image or grayscale NumPy tensor
-# Output: (H x W x 3) uint8 RGB NumPy tensor or B&W JPEG image.
+# Input:  Color JPEG image or NumPy tensor
+# Output: NumPy tensor (shape/dtype agnostic) or B&W JPEG image.
 # ======================================================================
 
 import os
 import numpy as np
 import cv2 # opencv-python-headless
 
+
+# ======================================================================
+# Load and Save JPEG files.
+# ======================================================================
 
 def load_input_image(img_path: str) -> np.ndarray:
     """
@@ -33,30 +37,6 @@ def load_input_image(img_path: str) -> np.ndarray:
     rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB) # BGR -> RGB
 
     return rgb
-
-
-def save_input_data(rgb_u8: np.ndarray, out_path: str) -> None:
-    """
-    Export an RGB uint8 tensor to a .npy file.
-    
-    :param rgb_u8: uint8 tensor
-    :param out_path: Path to output .npy file
-    """
-
-    # Validate rgb_u8 tensor
-    if rgb_u8.ndim != 3 or rgb_u8.shape[2] != 3:
-        raise ValueError(f"Invalid shape={rgb_u8.shape}; Expected shape=(H, W, 3)"
-    )
-    if rgb_u8.dtype != np.uint8:
-        raise ValueError(f"Invalid dtype={rgb_u8.dtype}; Expected dtype=uint8"
-    )
-
-    out_dir = os.path.dirname(out_path)
-
-    if out_dir:
-        os.makedirs(out_dir, exist_ok=True)
-
-    np.save(out_path, rgb_u8) 
 
 
 def save_output_image(gray_f32: np.ndarray, out_path: str) -> None:
@@ -87,3 +67,51 @@ def save_output_image(gray_f32: np.ndarray, out_path: str) -> None:
 
     ok = cv2.imwrite(out_path, img_u8)
     assert ok, f"Failed to save image: {out_path}"
+
+
+# ======================================================================
+# Load and Save NumPy tensor .npy files.
+# ======================================================================
+
+def load_tensor_npy(path: str) -> np.ndarray:
+    """
+    Import a NumPy tensor from a .npy file.
+    
+    :param path: Path to input .npy file
+    :return: Loaded NumPy array
+    """
+
+    if not os.path.isfile(path):
+        raise FileNotFoundError(f".npy file not found: {path}")
+
+    return np.load(path)
+
+
+def save_tensor_npy(tensor: np.ndarray, out_path: str) -> None:
+    """
+    Export NumPy tensor to .npy file.
+    
+    :param tensor: NumPy array (shape/dtype agnostic)
+    :param out_path: Path to output .npy file
+    """
+
+    out_dir = os.path.dirname(out_path)
+    
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+    
+    np.save(out_path, tensor)
+
+
+# ======================================================================
+# JPEG file validation
+# ======================================================================
+
+def _is_image_file(name: str) -> bool:
+    """
+    Confirm whether a file is a JPEG.
+
+    :param name: Filename
+    """
+    ext = os.path.splitext(name)[1].lower()
+    return ext in (".jpg", ".jpeg")

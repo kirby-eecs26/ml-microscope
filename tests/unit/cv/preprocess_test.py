@@ -2,16 +2,29 @@
 # preprocess_test.py
 #
 # Test module for preprocess.py
+# Creates RGB input tensors for preprocess.py testing. 
+# Convert input to normalized grayscale output tensors.
+# Optional exports for .npy files and grayscale JPEG files.
 #
 # Input: Color JPEG files
-# Output: B&W JPEG files
+# Output: I/O tensors, .npy exports, and B&W JPEG files
 # ======================================================================
 
-import os
-import numpy as np
+#TODO: v1.1: Add a new test module to automatically delete test output.
+#TODO: v2.0: Create output batches with different filter settings.
+#TODO: v2.1: Replicate v2.0 tests with frontend arguments.
 
-from image_io import load_input_image, save_input_data, save_output_image
-#from backend.preprocess import preprocess
+import os
+import sys
+
+REPO_ROOT = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "..")
+)
+sys.path.insert(0, REPO_ROOT)
+
+import numpy as np
+from image_io import load_input_image, save_tensor_npy, save_output_image, _is_image_file
+from backend.preprocess import preprocess
 
 BASE_DIR = "tests/unit/cv"
 
@@ -30,58 +43,81 @@ OUTPUT_RANGE = (0.0, 1.0)
 IMG_HEIGHT = 2464
 IMG_WIDTH = 3280
 
-
 # ======================================================================
-#
-# Create preprocessor.py input RGB .npy file from JPEG file.
-#
+# Validate input files and intiate batch testing loop.
 # ======================================================================
 
-# TODO: Replace single image test with batch processing.
+# Confirm output target paths
+os.makedirs(INPUT_IMG_DIR, exist_ok=True)
+os.makedirs(INPUT_DATA_DIR, exist_ok=True)
+os.makedirs(OUTPUT_DATA_DIR, exist_ok=True)
+os.makedirs(OUTPUT_IMG_DIR, exist_ok=True)
 
-input_img_name = "input01.jpeg"
-
-input_img_path = os.path.join(INPUT_IMG_DIR, input_img_name)
-
-data_path = os.path.join(
-    INPUT_DATA_DIR, os.path.splitext(input_img_name)[0] + ".npy"
+input_files = sorted( # Confirm JPEG input files
+    f for f in os.listdir(INPUT_IMG_DIR)
+    if os.path.isfile(os.path.join(INPUT_IMG_DIR, f)) and _is_image_file(f)
 )
 
-rgb_tensor = load_input_image(input_img_path)
-
-# Validate rgb_tensor
-assert rgb_tensor.shape == (IMG_HEIGHT, IMG_WIDTH, 3), (
-    f"Invalid shape={rgb_tensor.shape}; "
-    f"Expected shape=({IMG_HEIGHT}, {IMG_WIDTH}, 3)"
-)
-assert rgb_tensor.dtype == np.uint8, (
-    f"Invalid dtype={rgb_tensor.dtype}; Expected dtype=uint8"
+assert len(input_files) > 0, (
+    f"No input images found in: {INPUT_IMG_DIR}"
 )
 
-save_input_data(rgb_tensor, data_path)
+for idx, input_img_name in enumerate(input_files, start=1):
+    input_img_path = os.path.join(INPUT_IMG_DIR, input_img_name)
 
-# ======================================================================
-#
-# Test preprocess.py module.
-#
-# ======================================================================
+    output_tag = f"output{idx:02d}" # Set output filename
 
-output_data_name = "output01.npy"
+    # Print current file to console.
+    print(f"[{idx}/{len(input_files)}] Processing: {input_img_name}")
 
+    # ----------------------------------------------------------------------
+    # Create and validate preprocessor.py input tensor from JPEG file.
+    # ----------------------------------------------------------------------
 
-# ======================================================================
-#
-# Convert preprocessor.py output to JPEG file for validation
-#
-# ======================================================================
+    rgb_tensor = load_input_image(input_img_path)
 
-out_data_path = os.path.join(OUTPUT_DATA_DIR, output_data_name)
+    assert rgb_tensor.shape == (IMG_HEIGHT, IMG_WIDTH, INPUT_CHANNELS), (
+        f"{input_img_name}: Invalid shape={rgb_tensor.shape}; "
+        f"Expected shape=({IMG_HEIGHT}, {IMG_WIDTH}, {INPUT_CHANNELS})"
+    )
+    assert rgb_tensor.dtype == INPUT_DTYPE, (
+        f"{input_img_name}: Invalid dtype={rgb_tensor.dtype}; Expected dtype={INPUT_DTYPE}"
+    )
+    assert INPUT_RANGE[0] <= rgb_tensor.min() <= rgb_tensor.max() <= INPUT_RANGE[1], (
+    f"{input_img_name}: Invalid value range; Expected range={INPUT_RANGE}"
+    )
 
-out_data_path = os.path.join(OUTPUT_DATA_DIR, output_data_name)
-output_img_path = os.path.join(
-    OUTPUT_IMG_DIR, os.path.splitext(output_data_name)[0] + ".jpeg"
-)
+    # Export rgb_tensor to .npy file for testing/debugging.
+    input_data_path = os.path.join(
+        INPUT_DATA_DIR, os.path.splitext(input_img_name)[0] + ".npy"
+    )
+    save_tensor_npy(rgb_tensor, input_data_path)
 
-gray_tensor = np.load(out_data_path)
+    # ----------------------------------------------------------------------
+    # Test preprocess.py module and validate output.
+    # ----------------------------------------------------------------------
 
-save_output_image(gray_tensor, output_img_path)
+    gray_tensor = preprocess(rgb_tensor)
+
+    assert gray_tensor.shape == (IMG_HEIGHT, IMG_WIDTH), (
+        f"{output_tag}: Invalid shape={gray_tensor.shape}; "
+        f"Expected shape=({IMG_HEIGHT}, {IMG_WIDTH})"
+    )
+    assert gray_tensor.dtype == OUTPUT_DTYPE, (
+        f"{output_tag}: Invalid dtype={gray_tensor.dtype}; Expected dtype={OUTPUT_DTYPE}"
+    )
+    assert OUTPUT_RANGE[0] <= gray_tensor.min() <= gray_tensor.max() <= OUTPUT_RANGE[1], (
+        f"{output_tag}: Invalid value range; Expected range={OUTPUT_RANGE}"
+    )
+
+    # ----------------------------------------------------------------------
+    # Save preprocessor.py output as .npy and JPEG files for validation.
+    # ----------------------------------------------------------------------
+
+    output_data_path = os.path.join(OUTPUT_DATA_DIR, f"{output_tag}.npy")
+    output_img_path = os.path.join(OUTPUT_IMG_DIR, f"{output_tag}.jpeg")
+
+    save_tensor_npy(gray_tensor, output_data_path)
+    save_output_image(gray_tensor, output_img_path)
+ 
+print(f"Testing completed. Processed {len(input_files)} image(s).")
