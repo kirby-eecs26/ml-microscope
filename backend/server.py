@@ -12,12 +12,11 @@ from http.client import responses
 import numpy as np
 import json
 import requests
-from libraries.GlobalVariables import (API_BASE, XY_STEPSIZE, Z_STEPSIZE, NEG_X_BOUND,
-                                       POS_X_BOUND, POS_Y_BOUND, NEG_Y_BOUND, POS_Z_BOUND, NEG_Z_BOUND)
+from libraries.GlobalVariables import (API_BASE, POS_X_BOUND, POS_Z_BOUND, NEG_Z_BOUND)
 
 #Helper Functions
 
-#fro arrow keys
+#for arrow keys
 # def getCurrentPostion(timeout = 2.0):
 #     print("getCurrentPostion")
 #     try:
@@ -26,6 +25,7 @@ from libraries.GlobalVariables import (API_BASE, XY_STEPSIZE, Z_STEPSIZE, NEG_X_
 #
 #     except Exception as e:
 #         print("Error getting current postion")
+
 
 def apiHealth(timeout=2.0) -> bool:
     try:
@@ -48,7 +48,8 @@ def checkCords(x, y, z) -> bool:
         return False
 
 
-# def moveArrows():
+#def moveArrows():
+
 
 
 def moveButton(x: int, y: int, z: int, timeout = 2.0):
