@@ -19,8 +19,6 @@ from contextlib import chdir
 #
 # print(f"Created local path: {path}")
 
-downloads_folder = os.path.join(os.getenv("USERPROFILE"), "Downloads")
+downloads_path = Path.home() / "Downloads"
 
-
-
-file_path = os.path.join(downloads_folder, "placeholder.txt")
+file_path = os.path.join(downloads_path, "placeholder.txt")

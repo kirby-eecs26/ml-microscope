@@ -115,9 +115,9 @@ def mjpeg_stream_url():
         print("Camera error: could not stream mjpeg")
 
 
-def captureVideo(frames: int, payload: dict, duration: float = MAX_DURATION_SEC) -> list:
+def captureVideo(fpm: int, payload: dict, duration: float = MAX_DURATION_SEC) -> list:
     print("getVideo")
-    spf: float = 3600 / frames
+    spf: float = 3600 / fpm #fix this math to get # if sec inbetween each frame
 
     video: list = []
 
