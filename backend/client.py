@@ -5,6 +5,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from . import server
+from fastapi.responses import StreamingResponse
+import requests
 
 # Allow Vue server to call this backend
 app = FastAPI(title="ML Microscope Backend")
@@ -45,6 +47,24 @@ def health():
 @app.get("/live")
 def live():
     return {"mjpeg_url": server.mjpeg_stream_url()}
+
+@app.get("/live/stream")
+def live_stream():
+    url = server.mjpeg_stream_url()  # e.g. http://<pi>/api/v2/streams/mjpeg
+    try:
+        r = requests.get(url, stream=True, timeout=10)
+        r.raise_for_status()
+
+        # IMPORTANT: forward the real MJPEG content-type (with correct boundary)
+        content_type = r.headers.get("Content-Type", "multipart/x-mixed-replace")
+
+        return StreamingResponse(
+            r.raw,  # stream raw bytes directly
+            media_type=content_type
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Live stream failed: {e}")
 
 #return all image captures
 @app.get("/captures")
