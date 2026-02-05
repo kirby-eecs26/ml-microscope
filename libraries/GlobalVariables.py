@@ -9,4 +9,5 @@ POS_Y_BOUND: int = 85000            #up
 NEG_Y_BOUND: int = -85000           #dowm
 POS_Z_BOUND: int = -80000           #closer to slide
 NEG_Z_BOUND: int = 70000            #farther from slide
-#CENTERBOUND: int = "centerbound"
+#CENTER_POINT: int = "center point"
+MAX_DURATION_SEC: float = 15.0
