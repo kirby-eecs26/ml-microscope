@@ -10,7 +10,6 @@
 # Output: I/O tensors, .npy exports, and B&W JPEG files
 # ======================================================================
 
-#TODO: v1.1: Add a new test module to automatically delete test output.
 #TODO: v2.0: Create output batches with different filter settings.
 #TODO: v2.1: Replicate v2.0 tests with frontend arguments.
 
@@ -22,9 +21,9 @@ REPO_ROOT = os.path.abspath(
 )
 sys.path.insert(0, REPO_ROOT)
 
-import numpy as np
-from image_io import load_input_image, save_tensor_npy, save_output_image, _is_image_file
-from backend.preprocess import preprocess
+import numpy as np  # noqa: E402
+from image_io import load_input_image, save_tensor_npy, save_output_image, _is_image_file  # noqa: E402
+from backend.preprocess import preprocess  # noqa: E402
 
 BASE_DIR = "tests/unit/cv"
 
