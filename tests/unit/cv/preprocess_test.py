@@ -93,15 +93,16 @@ for idx, input_img_name in enumerate(input_files, start=1):
     # Test preprocess.py module and validate output.
     # ----------------------------------------------------------------------
 
-    gray_tensor = preprocess(rgb_tensor)
+    # gray_tensor = preprocess(rgb_tensor)
 
-    # gray_tensor = preprocess(
-    #     rgb_tensor,
-    #     denoise_radius=6,
-    #     sharpen_radius=2,
-    #     sharpen_magnitude=0.5,
-    #     contrast=0.2,
-    # )
+    gray_tensor = preprocess(
+        rgb_tensor,
+        brightness=0.1,
+        denoise_radius=6,
+        sharpen_radius=2,
+        sharpen_magnitude=0.5,
+        contrast=0.2,
+    )
 
     assert gray_tensor.shape == (IMG_HEIGHT, IMG_WIDTH), (
         f"{output_tag}: Invalid shape={gray_tensor.shape}; "
