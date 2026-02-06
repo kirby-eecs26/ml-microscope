@@ -24,28 +24,23 @@
       <span class="material-symbols-outlined icon">videocam</span>
       <span class="label">Video</span>
     </RouterLink>
-
-    <RouterLink class="nav" to="/analyze">
-      <span class="material-symbols-outlined icon">bar_chart</span>
-      <span class="label">Analyze</span>
-    </RouterLink>
-
+    
     <div class="spacer"></div>
 
-    <a class="nav plain" href="#">
+    <RouterLink class="nav" to="/about">
       <span class="material-symbols-outlined icon">info</span>
       <span class="label">About</span>
-    </a>
+    </RouterLink>
 
-    <a class="nav plain" href="#">
+    <RouterLink class="nav" to="/logging">
       <span class="material-symbols-outlined icon">description</span>
       <span class="label">Logging</span>
-    </a>
+    </RouterLink>
 
-    <a class="nav plain" href="#">
+    <RouterLink class="nav" to="/settings">
       <span class="material-symbols-outlined icon">settings</span>
       <span class="label">Settings</span>
-    </a>
+    </RouterLink>
 
     <a class="nav plain" href="#">
       <span class="material-symbols-outlined icon">power_settings_new</span>
