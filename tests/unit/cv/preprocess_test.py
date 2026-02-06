@@ -10,9 +10,6 @@
 # Output: I/O tensors, .npy exports, and B&W JPEG files
 # ======================================================================
 
-#TODO: v2.0: Create output batches with different filter settings.
-#TODO: v2.1: Replicate v2.0 tests with frontend arguments.
-
 import os
 import sys
 
