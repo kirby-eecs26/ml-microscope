@@ -3,6 +3,9 @@ import View from "../window/View.vue";
 import Gallery from "../window/Gallery.vue";
 import Move from "../window/Move.vue";
 import Image from "../window/Image.vue";
+import About from "../window/About.vue";
+import Logging from "../window/Logging.vue";
+import Settings from "../window/Settings.vue";
 
 export default createRouter({
   history: createWebHistory(),
@@ -12,5 +15,8 @@ export default createRouter({
     { path: "/gallery", component: Gallery },
     { path: "/move", component: Move },
     { path: "/image", component: Image },
+    { path: "/about", component: About},
+    {path: "/logging", component: Logging},
+    {path: "/settings", component: Settings},
   ],
 });
