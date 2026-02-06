@@ -69,7 +69,7 @@ def disconnect():
         print("Could not disconnect :(" + e.message)
         return False
 
-
-if __name__ == "__main__":
-    apiConnect()
-    camConnect()
+#
+# if __name__ == "__main__":
+#     apiConnect()
+#     camConnect()
