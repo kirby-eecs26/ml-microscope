@@ -35,7 +35,6 @@
       <div class="group">
         <div class="groupTitle">Move</div>
 
-        <!-- Arrow pad (matches look: up arrow row, inputs row, down arrow row) -->
         <div class="arrowPad">
           <div class="padRow">
             <button class="circle" @click="nudge('x', +1)" title="+X">
@@ -68,9 +67,7 @@
           </div>
         </div>
 
-        <button class="primaryBtn" @click="moveNow">
-          MOVE
-        </button>
+        <button class="primaryBtn" @click="moveNow">MOVE</button>
 
         <button class="secondaryBtn" @click="zeroCoordinates">
           ZERO COORDINATES
@@ -106,52 +103,65 @@
         </div>
       </div>
 
-      <!-- Optional: tiny status line (helpful) -->
       <div class="status">
         Step: <b>{{ step }}</b> ({{ stepAxis.toUpperCase() }}) ·
         Pos: <b>{{ pos.x }}</b>, <b>{{ pos.y }}</b>, <b>{{ pos.z }}</b>
+      </div>
+
+      <div class="status" v-if="moveStatus">
+        {{ moveStatus }}
       </div>
     </section>
 
     <!-- Microscope preview panel -->
     <section class="preview">
-      <!-- Put your camera placeholder here for now -->
-      <img class="previewImg" src="/sample.jpg" alt="Microscope preview" />
+      <CameraPreview />
     </section>
   </div>
 </template>
 
 <script setup>
 import { reactive, ref } from "vue";
+import CameraPreview from "../components/CameraPreview.vue";
+import { moveAbs } from "../api/imageApi";
 
-// Which axis step-size control is focused (matches your x-step/y-step/z-step pills)
 const stepAxis = ref("x");
+const step = ref(500); // 1 is too small for noticeable movement
 
-// Step size value used for nudging
-const step = ref(1);
-
-// Position fields (for now, just local state)
 const pos = reactive({ x: 0, y: 0, z: 0 });
 
-// Autofocus selection
 const autofocus = ref("");
+const moveStatus = ref("");
 
-// Nudge logic: adjust position by +/- step
-function nudge(axis, direction) {
+async function nudge(axis, direction) {
+  const old = pos[axis];
   const delta = direction * step.value;
   pos[axis] = (Number(pos[axis]) || 0) + delta;
+
+  // If the backend rejects bounds, revert so you don't "lose" the coordinate truth
+  try {
+    await moveNow();
+  } catch {
+    pos[axis] = old;
+  }
 }
 
-// Placeholder: later you’ll call your Python API here
-function moveNow() {
-  console.log("MOVE clicked:", { ...pos, step: step.value, axis: stepAxis.value });
-  // Example later:
-  // await fetch("/api/move", { method:"POST", headers:{...}, body: JSON.stringify({...}) })
+async function moveNow() {
+  moveStatus.value = "Moving...";
+  try {
+    await moveAbs(pos.x, pos.y, pos.z);
+    moveStatus.value = "Move sent ✅";
+  } catch (e) {
+    moveStatus.value = `Move failed: ${e?.message ?? String(e)}`;
+    throw e; // important so nudge() can revert on failure
+  }
 }
 
 function zeroCoordinates() {
-  pos.x = 0; pos.y = 0; pos.z = 0;
-  console.log("ZERO COORDINATES clicked");
+  pos.x = 0;
+  pos.y = 0;
+  pos.z = 0;
+  moveStatus.value = "Zeroed (not moved yet)";
 }
 
 function runAutofocus(mode) {
@@ -166,10 +176,9 @@ function runAutofocus(mode) {
   display: grid;
   grid-template-columns: 240px 1fr;
   gap: 0;
-  height: calc(100vh - 36px); /* matches your dark outer frame spacing */
+  height: calc(100vh - 36px);
 }
 
-/* Controls panel */
 .controls {
   background: #efefef;
   color: #111;
@@ -189,14 +198,12 @@ function runAutofocus(mode) {
   margin: 12px 0;
 }
 
-/* 3 buttons row */
 .row3 {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
 
-/* Pills (x-step/y-step/z-step, autofocus) */
 .pill {
   border: 1px solid #bdbdbd;
   background: #f7f7f7;
@@ -221,7 +228,6 @@ function runAutofocus(mode) {
   background: #fff;
 }
 
-/* Arrow pad */
 .arrowPad {
   margin-top: 8px;
   display: grid;
@@ -235,11 +241,6 @@ function runAutofocus(mode) {
   align-items: center;
 }
 
-.padRow.inputs {
-  gap: 10px;
-}
-
-/* Circular arrow buttons */
 .circle {
   width: 32px;
   height: 32px;
@@ -261,7 +262,6 @@ function runAutofocus(mode) {
   line-height: 22px;
 }
 
-/* Axis number boxes */
 .axisInput {
   width: 100%;
   height: 28px;
@@ -272,7 +272,6 @@ function runAutofocus(mode) {
   background: #fff;
 }
 
-/* MOVE / ZERO buttons */
 .primaryBtn {
   width: 100%;
   margin-top: 10px;
@@ -306,24 +305,16 @@ function runAutofocus(mode) {
   background: #f3f6fb;
 }
 
-/* Small status line */
 .status {
   margin-top: 12px;
   font-size: 11px;
   opacity: 0.8;
 }
 
-/* Preview area */
 .preview {
   background: #d9d9d9;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.previewImg {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 </style>
