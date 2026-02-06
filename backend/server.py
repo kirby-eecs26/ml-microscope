@@ -8,7 +8,7 @@ import time
 import math
 #from ctypes.wintypes import tagMSG
 #from http.client import responses
-
+import backend.error
 import numpy as np
 #import json
 import requests
@@ -55,7 +55,7 @@ def checkCords(x, y, z) -> bool:
 
 
 def moveButton(x: int, y: int, z: int, timeout = 2.0):
-    print("move")
+    print("moveButton")
     try:
         if checkCords(x, y, z):
             payload = {
@@ -65,22 +65,22 @@ def moveButton(x: int, y: int, z: int, timeout = 2.0):
                 "absolute": True
             }
 
-            print("Cords moved")
             response = requests.post(f"{API_BASE}api/v2/actions/stage/move", json=payload, timeout=timeout)
             response.raise_for_status()
+
+            print("Cords moved")
             return response.json()
 
         else:
-            print("Cords not moved")
-            raise Exception("Cords not moved")
+            raise backend.error.MoveMicroscopeError()
 
-    except Exception as e:
-        print("Cords not moved")
+    except (Exception, backend.error.MoveMicroscopeError) as e:
+        print(e.__str__())
 
 
 def captureImg(payload: dict, timeout = 2.0): #-> jpeg?
     """take image and save to local pi"""
-    print("getImg")
+    print("captureImg")
     try:
         response = requests.post(f"{API_BASE}api/v2/actions/camera/capture", json=payload, timeout=timeout)
         response.raise_for_status()
@@ -117,13 +117,17 @@ def mjpeg_stream_url():
 
 def captureVideo(fpm: int, payload: dict, duration: float = MAX_DURATION_SEC) -> list:
     print("getVideo")
-    spf: float = 3600 / fpm #fix this math to get # if sec inbetween each frame
+    spf: float = 60 / fpm
 
     video: list = []
+    start_time = time.time()
+    i = 0
 
-    for i in np.arange(0, duration, spf):
-        video.append(captureImg(payload))  # wrong func call
-        time.sleep(spf)
+    while time.time() - start_time < duration:
+        video.append(captureImg(payload))
+        # video.append(f"img{i}")
+        # i += 1
+        # time.sleep(spf)
 
     return video
 
@@ -131,5 +135,8 @@ def captureVideo(fpm: int, payload: dict, duration: float = MAX_DURATION_SEC) ->
 def download():
     """download img api call"""
     print("download")
+
+if __name__ == "__main__":
+    listCaptures()
 
 
