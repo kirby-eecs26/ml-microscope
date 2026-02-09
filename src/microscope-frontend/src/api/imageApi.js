@@ -31,3 +31,15 @@ export async function moveAbs(x, y, z) {
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
+
+export async function getPosition() {
+  const r = await fetch(`${BASE_URL}/position`);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json(); // { position: {x,y,z} }
+}
+
+export async function centerStage() {
+  const r = await fetch(`${BASE_URL}/center`, { method: "POST" });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
