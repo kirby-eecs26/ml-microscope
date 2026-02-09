@@ -94,3 +94,22 @@ def move(req: MoveAbsRequest):
         return {"ok": True, "action": action}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/position")
+def position():
+    try:
+        pos = server.get_position()
+        return {"position": pos}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/center")
+def center():
+    # This is "go to (0,0,0)" — NOT re-zeroing scale
+    try:
+        action = server.moveButton(0, 0, 0)
+        pos = server.get_position()
+        return {"ok": True, "action": action, "position": pos}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

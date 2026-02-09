@@ -49,9 +49,9 @@
           </div>
 
           <div class="padRow inputs">
-            <input class="axisInput" v-model.number="pos.x" type="number" />
-            <input class="axisInput" v-model.number="pos.y" type="number" />
-            <input class="axisInput" v-model.number="pos.z" type="number" />
+            <input class="axisInput" v-model.number="target.x" type="number" />
+            <input class="axisInput" v-model.number="target.y" type="number" />
+            <input class="axisInput" v-model.number="target.z" type="number" />
           </div>
 
           <div class="padRow">
@@ -69,8 +69,8 @@
 
         <button class="primaryBtn" @click="moveNow">MOVE</button>
 
-        <button class="secondaryBtn" @click="zeroCoordinates">
-          ZERO COORDINATES
+        <button class="secondaryBtn" @click="centerNow">
+          CENTER STAGE
         </button>
       </div>
 
@@ -104,8 +104,9 @@
       </div>
 
       <div class="status">
-        Step: <b>{{ step }}</b> ({{ stepAxis.toUpperCase() }}) ·
-        Pos: <b>{{ pos.x }}</b>, <b>{{ pos.y }}</b>, <b>{{ pos.z }}</b>
+        Step: <b>{{ step }}</b> ·
+        Target: <b>{{ target.x }}</b>, <b>{{ target.y }}</b>, <b>{{ target.z }}</b> ·
+        Current: <b>{{ current.x }}</b>, <b>{{ current.y }}</b>, <b>{{ current.z }}</b>
       </div>
 
       <div class="status" v-if="moveStatus">
@@ -121,54 +122,145 @@
 </template>
 
 <script setup>
-import { reactive, ref } from "vue";
+import { reactive, ref, onMounted } from "vue";
 import CameraPreview from "../components/CameraPreview.vue";
-import { moveAbs } from "../api/imageApi";
+import { moveAbs, getPosition, centerStage } from "../api/imageApi";
 
 const stepAxis = ref("x");
-const step = ref(500); // 1 is too small for noticeable movement
+const step = ref(500);
 
-const pos = reactive({ x: 0, y: 0, z: 0 });
+const target = reactive({ x: 0, y: 0, z: 0 });   // editable values (UI)
+const current = reactive({ x: 0, y: 0, z: 0 });  // actual microscope position
 
 const autofocus = ref("");
 const moveStatus = ref("");
 
-async function nudge(axis, direction) {
-  const old = pos[axis];
-  const delta = direction * step.value;
-  pos[axis] = (Number(pos[axis]) || 0) + delta;
+function setBoth(pos) {
+  target.x = Number(pos.x) || 0;
+  target.y = Number(pos.y) || 0;
+  target.z = Number(pos.z) || 0;
 
-  // If the backend rejects bounds, revert so you don't "lose" the coordinate truth
-  try {
-    await moveNow();
-  } catch {
-    pos[axis] = old;
+  current.x = Number(pos.x) || 0;
+  current.y = Number(pos.y) || 0;
+  current.z = Number(pos.z) || 0;
+
+  localStorage.setItem("lastStagePos", JSON.stringify({ x: current.x, y: current.y, z: current.z }));
+}
+
+function normalizePos(data) {
+  const pos = data?.position ?? data ?? {};
+  return {
+    x: Number(pos.x) || 0,
+    y: Number(pos.y) || 0,
+    z: Number(pos.z) || 0,
+  };
+}
+
+async function refreshPositionSafe() {
+  const data = await getPosition();
+  const pos = normalizePos(data);
+
+  current.x = pos.x;
+  current.y = pos.y;
+  current.z = pos.z;
+
+  localStorage.setItem("lastStagePos", JSON.stringify(pos));
+  return pos;
+}
+
+function almostEqual(a, b, tol = 50) {
+  return Math.abs(a - b) <= tol;
+}
+
+function atTarget(pos, tgt, tol = 50) {
+  return (
+    almostEqual(pos.x, tgt.x, tol) &&
+    almostEqual(pos.y, tgt.y, tol) &&
+    almostEqual(pos.z, tgt.z, tol)
+  );
+}
+
+async function waitUntilAtTarget(tgt, maxMs = 45000) {
+  const start = Date.now();
+  while (Date.now() - start < maxMs) {
+    const pos = await refreshPositionSafe();
+    if (atTarget(pos, tgt, 50)) return true;
+    await new Promise((r) => setTimeout(r, 300));
   }
+  throw new Error("Timed out waiting for stage to reach target");
+}
+
+async function refreshPosition() {
+  const data = await getPosition();
+  const pos = normalizePos(data);
+  setBoth(pos);
+}
+
+onMounted(async () => {
+  const cached = localStorage.getItem("lastStagePos");
+  if (cached) {
+    try {
+      const p = JSON.parse(cached);
+      target.x = p.x; target.y = p.y; target.z = p.z;
+      current.x = p.x; current.y = p.y; current.z = p.z;
+    } catch {}
+  }
+
+  try {
+    await refreshPosition();
+    moveStatus.value = "Synced with microscope ✅";
+  } catch (e) {
+    moveStatus.value = "Could not reach microscope (showing last known position)";
+  }
+});
+
+function nudge(axis, direction) {
+  const delta = direction * step.value;
+  target[axis] = (Number(target[axis]) || 0) + delta;
+  moveStatus.value = "Target changed (not moved yet)";
 }
 
 async function moveNow() {
   moveStatus.value = "Moving...";
+  const tgt = { x: target.x, y: target.y, z: target.z };
+
   try {
-    await moveAbs(pos.x, pos.y, pos.z);
-    moveStatus.value = "Move sent ✅";
+    await moveAbs(tgt.x, tgt.y, tgt.z);
+    await waitUntilAtTarget(tgt, 45000);
+    moveStatus.value = "Move complete ✅";
   } catch (e) {
-    moveStatus.value = `Move failed: ${e?.message ?? String(e)}`;
-    throw e; // important so nudge() can revert on failure
+    moveStatus.value = "Move in progress… (syncing current position)";
+    await refreshPositionSafe();
   }
 }
 
-function zeroCoordinates() {
-  pos.x = 0;
-  pos.y = 0;
-  pos.z = 0;
-  moveStatus.value = "Zeroed (not moved yet)";
+
+async function centerNow() {
+  moveStatus.value = "Centering...";
+
+  target.x = 0; target.y = 0; target.z = 0;
+  try {
+    await centerStage();
+  } catch (e) {
+    console.warn("centerStage request failed (may still be moving):", e);
+  }
+
+  try {
+    await waitUntilAtTarget({ x: 0, y: 0, z: 0 }, 45000);
+    moveStatus.value = "Centered ✅";
+  } catch (e) {
+    moveStatus.value = "Center in progress… (syncing current position)";
+    await refreshPositionSafe();
+  }
 }
+
 
 function runAutofocus(mode) {
   autofocus.value = mode;
   console.log("AUTOFOCUS:", mode);
 }
 </script>
+
 
 <style scoped>
 /* Page layout: controls left, preview right */
