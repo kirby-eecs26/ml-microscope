@@ -119,11 +119,12 @@ def _sharpen_filter(img_f32: np.ndarray, sharpen_magnitude: float, sharpen_radiu
     :param sharpen_magnitude: Gain scalar [0.0, 1.0]
     :param sharpen_radius: Sharpness radius [0, 10]
         (magnitude = 0.0 & radius = 0) -> no filter
-        Suggested usage:
-            - Start with mag = 0.5 and radius = 2
-            - Sweep mag first
-            - If needed, change radius, reset mag to 0.5 and repeat
     :return: sharpened (H, W) float32
+
+    Suggested usage:
+    - Start with mag = 0.5 and radius = 2
+    - Sweep magnitude value first
+    - If needed, change radius, reset mag to 0.5, and repeat
     """
     GAIN = 5.0
 

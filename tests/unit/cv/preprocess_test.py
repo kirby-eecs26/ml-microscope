@@ -97,6 +97,7 @@ for idx, input_img_name in enumerate(input_files, start=1):
 
     # gray_tensor = preprocess(
     #     rgb_tensor,
+    #     brightness=0.1,
     #     denoise_radius=6,
     #     sharpen_radius=2,
     #     sharpen_magnitude=0.5,
