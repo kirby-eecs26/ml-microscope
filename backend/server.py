@@ -53,10 +53,7 @@ def checkCords(x, y, z) -> bool:
 #def moveArrows():
 
 def get_position(timeout=8.0) -> dict:
-    """
-    Returns current stage position from OpenFlexure.
-    Expected format is something like: {"x":..., "y":..., "z":...}
-    """
+    """Returns current stage position from OpenFlexure."""
     r = requests.get(f"{API_BASE}api/v2/instrument/state/stage/position", timeout=timeout)
     r.raise_for_status()
     pos = r.json()
