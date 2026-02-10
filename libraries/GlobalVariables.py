@@ -1,6 +1,7 @@
 #temp global variable lib to keep track of what will be used repeatedly - danny
+import os
 
-API_BASE = "http://microscope.local:5000/"
+API_BASE = os.getenv("OPENFLEXURE_BASE_URL", "http://microscope.local:5000/")
 XY_STEPSIZE: int = 500
 Z_STEPSIZE: int = 50
 NEG_X_BOUND: int = -85000           #left
