@@ -1,148 +1,188 @@
 <template>
   <div class="videoPage">
-    <!-- Left control panel -->
+    <!-- LEFT: only Resolution + Frame rate -->
     <section class="controls">
       <div class="controlTitle">VIDEO</div>
 
       <div class="field">
-        <div class="label">Filename</div>
-        <input class="textInput" v-model="filename" placeholder="filename" />
-      </div>
-
-      <div class="field">
         <div class="label">Resolution</div>
         <div class="row2">
-          <button class="pill" :class="{ active: resolution === 'FULL' }" @click="resolution = 'FULL'">
-            FULL
-          </button>
-          <button class="pill" :class="{ active: resolution === 'RAW' }" @click="resolution = 'RAW'">
-            RAW
-          </button>
+          <button class="pill" :class="{ active: resolution === 'FULL' }" @click="resolution = 'FULL'">FULL</button>
+          <button class="pill" :class="{ active: resolution === 'RAW' }" @click="resolution = 'RAW'">RAW</button>
         </div>
       </div>
 
       <div class="field">
-        <div class="label">Frames-per-Hour (FPH)</div>
+        <div class="label">Frames-per-Minute (FPM)</div>
         <div class="row2">
-          <button class="pill" :class="{ active: fphPreset === 60 }" @click="setPreset(60)">
-            60 FPH
-          </button>
-          <button class="pill" :class="{ active: fphPreset === 30 }" @click="setPreset(30)">
-            30 FPH
-          </button>
+          <button class="pill" :class="{ active: frameRate === 60 }" @click="setPreset(60)">60</button>
+          <button class="pill" :class="{ active: frameRate === 30 }" @click="setPreset(30)">30</button>
         </div>
 
         <div class="rowCustom">
-          <input class="miniInput" v-model.number="customFph" type="number" placeholder="fph" min="1" />
-          <button class="setBtn" @click="setCustomFph">SET FPH</button>
-        </div>
-      </div>
-
-      <div class="field">
-        <div class="label">Notes</div>
-        <textarea class="textArea" v-model="notes" placeholder="Notes" />
-      </div>
-
-      <div class="field">
-        <div class="label">Annotations</div>
-        <div class="annoRow">
-          <input class="miniInput" v-model="annoKey" placeholder="key" />
-          <input class="miniInput" v-model="annoValue" placeholder="value" />
-          <button class="plusBtn" @click="addAnnotation" title="Add annotation">
-            <span class="material-symbols-outlined">add_circle</span>
-          </button>
-        </div>
-
-        <div v-if="annotations.length" class="chips">
-          <div class="chip" v-for="(a, i) in annotations" :key="i">
-            {{ a.key }}: {{ a.value }}
-            <button class="chipX" @click="annotations.splice(i, 1)" title="Remove">
-              <span class="material-symbols-outlined">close</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div class="field">
-        <div class="label">Tags</div>
-        <div class="tagRow">
-          <input class="miniInput" v-model="tagInput" placeholder="tag" />
-          <button class="plusBtn" @click="addTag" title="Add tag">
-            <span class="material-symbols-outlined">add_circle</span>
-          </button>
-        </div>
-
-        <div v-if="tags.length" class="chips">
-          <div class="chip" v-for="(t, i) in tags" :key="i">
-            {{ t }}
-            <button class="chipX" @click="tags.splice(i, 1)" title="Remove">
-              <span class="material-symbols-outlined">close</span>
-            </button>
-          </div>
+          <input class="miniInput" v-model.number="customRate" type="number" placeholder="fpm" min="1" />
+          <button class="setBtn" @click="setCustom">SET</button>
         </div>
       </div>
 
       <div class="spacer"></div>
 
-      <button class="startBtn" @click="startVideo">
-        START VIDEO
-      </button>
+      <button v-if="!recording" class="primaryBtn" @click="startRecording">START VIDEO</button>
+      <button v-else class="primaryBtn" @click="stopRecording">STOP VIDEO</button>
     </section>
 
-    <!-- Center preview -->
+    <!-- CENTER preview -->
     <section class="preview">
-      <!-- If you already have a live stream component, swap this in -->
-      <!-- <CameraPreview /> -->
-
-      <!-- Placeholder image to match your other screens -->
       <img class="previewImg" src="/cell.jpg" alt="Microscope preview" />
     </section>
 
-    <!-- Right status panel -->
+    <!-- RIGHT status -->
     <section class="statusPanel">
       <div class="statusRow">
         <span class="dot" :class="{ on: connected }"></span>
         <span class="statusText">{{ connected ? "Connected" : "Disconnected" }}</span>
       </div>
     </section>
+
+    <!-- STOP -> Modal -->
+    <div v-if="stopModalOpen" class="backdrop" @click.self="closeStopModal">
+      <div class="videoModal">
+        <div class="videoModalHeader">
+          <div class="videoModalTitle">Video</div>
+          <button class="closeX" @click="closeStopModal">×</button>
+        </div>
+
+        <div class="videoModalBody">
+          <!-- Left pane in modal -->
+          <div class="modalLeft">
+            <div class="modalField">
+              <div class="modalLabel">Filename</div>
+              <input class="textInput" v-model="modalFilename" placeholder="filename" />
+            </div>
+
+            <div class="modalField">
+              <div class="modalLabel">Notes</div>
+              <textarea class="textArea" v-model="modalNotes" placeholder="Notes"></textarea>
+            </div>
+
+            <div class="modalField">
+              <div class="modalLabel">Annotations</div>
+              <div class="annoRow">
+                <input class="miniInput" v-model="annoKey" placeholder="key" />
+                <input class="miniInput" v-model="annoValue" placeholder="value" />
+                <button class="plusBtn" @click="addAnnotation" title="Add annotation">
+                  <span class="material-symbols-outlined">add_circle</span>
+                </button>
+              </div>
+
+              <div v-if="modalAnnotations.length" class="chips">
+                <div class="chip" v-for="(a, i) in modalAnnotations" :key="i">
+                  {{ a.key }}: {{ a.value }}
+                  <button class="chipX" @click="modalAnnotations.splice(i, 1)" title="Remove">
+                    <span class="material-symbols-outlined">close</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="modalField">
+              <div class="modalLabel">Tags</div>
+              <div class="tagRow">
+                <input class="miniInput" v-model="tagInput" placeholder="tag" />
+                <button class="plusBtn" @click="addTag" title="Add tag">
+                  <span class="material-symbols-outlined">add_circle</span>
+                </button>
+              </div>
+
+              <div v-if="modalTags.length" class="chips">
+                <div class="chip" v-for="(t, i) in modalTags" :key="i">
+                  {{ t }}
+                  <button class="chipX" @click="modalTags.splice(i, 1)" title="Remove">
+                    <span class="material-symbols-outlined">close</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="modalField">
+              <div class="modalLabel">Analyze</div>
+              <button class="countBtn" @click="countCells">COUNT CELLS</button>
+              <div v-if="cellCount !== null" class="countResult">Cell Count: {{ cellCount }}</div>
+            </div>
+
+            <div class="modalFooterLeft">
+              <button class="saveBtn" @click="saveToGallery">SAVE TO GALLERY</button>
+            </div>
+          </div>
+
+          <!-- Right preview in modal -->
+          <div class="modalRight">
+            <div class="modalPreviewFrame">
+              <img class="modalPreviewImg" src="/cell.jpg" alt="Video preview" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref } from "vue";
-// import CameraPreview from "../components/CameraPreview.vue";
 
 const connected = ref(true);
 
-const filename = ref("");
 const resolution = ref("FULL"); // FULL | RAW
+const frameRate = ref(60);      // FPM (demo)
+const customRate = ref(null);
 
-const fphPreset = ref(60);
-const customFph = ref(null);
+const recording = ref(false);
 
-const notes = ref("");
-
+// STOP modal
+const stopModalOpen = ref(false);
+const modalFilename = ref("filename");
+const modalNotes = ref("");
+const modalAnnotations = ref([]);
+const modalTags = ref([]);
 const annoKey = ref("");
 const annoValue = ref("");
-const annotations = ref([]);
-
 const tagInput = ref("");
-const tags = ref([]);
+const cellCount = ref(null);
 
 function setPreset(n) {
-  fphPreset.value = n;
-  customFph.value = null;
+  frameRate.value = n;
+  customRate.value = null;
 }
 
-function setCustomFph() {
-  const n = Number(customFph.value);
+function setCustom() {
+  const n = Number(customRate.value);
   if (!Number.isFinite(n) || n <= 0) return;
-  fphPreset.value = n; // treat custom as the active FPH value
+  frameRate.value = n;
+}
+
+function startRecording() {
+  recording.value = true;
+  console.log("START RECORDING", { resolution: resolution.value, frameRate: frameRate.value });
+}
+
+function stopRecording() {
+  recording.value = false;
+  console.log("STOP RECORDING");
+  openStopModal();
+}
+
+function openStopModal() {
+  stopModalOpen.value = true;
+  cellCount.value = null;
+}
+
+function closeStopModal() {
+  stopModalOpen.value = false;
 }
 
 function addAnnotation() {
   if (!annoKey.value || !annoValue.value) return;
-  annotations.value.push({ key: annoKey.value, value: annoValue.value });
+  modalAnnotations.value.push({ key: annoKey.value, value: annoValue.value });
   annoKey.value = "";
   annoValue.value = "";
 }
@@ -150,26 +190,31 @@ function addAnnotation() {
 function addTag() {
   const t = tagInput.value.trim();
   if (!t) return;
-  tags.value.push(t);
+  modalTags.value.push(t);
   tagInput.value = "";
 }
 
-function startVideo() {
-  // Replace this with your API call later
+function countCells() {
+  // demo placeholder
+  cellCount.value = 25;
+}
+
+function saveToGallery() {
   const payload = {
-    filename: filename.value.trim(),
+    filename: modalFilename.value.trim(),
+    notes: modalNotes.value,
+    annotations: modalAnnotations.value,
+    tags: modalTags.value,
+    analysis: cellCount.value === null ? null : { cellCount: cellCount.value },
     resolution: resolution.value,
-    fph: fphPreset.value,
-    notes: notes.value,
-    annotations: annotations.value,
-    tags: tags.value,
+    frameRate: frameRate.value,
   };
-  console.log("START VIDEO:", payload);
+  console.log("SAVE TO GALLERY:", payload);
+  closeStopModal();
 }
 </script>
 
 <style scoped>
-/* 3 columns: controls | preview | status */
 .videoPage {
   height: calc(100vh - 36px);
   display: grid;
@@ -177,7 +222,7 @@ function startVideo() {
   background: var(--content-bg);
 }
 
-/* LEFT: controls */
+/* LEFT controls */
 .controls {
   background: var(--sidebar-bg);
   color: var(--text-dark);
@@ -196,38 +241,8 @@ function startVideo() {
   margin-bottom: 2px;
 }
 
-.field {
-  display: grid;
-  gap: 6px;
-}
-
-.label {
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.textInput {
-  height: 30px;
-  border: 1px solid #bdbdbd;
-  border-radius: 6px;
-  padding: 0 10px;
-  font-size: 12px;
-  background: #fff;
-  color: #111;
-  outline: none;
-}
-
-.textArea {
-  min-height: 90px;
-  border: 1px solid #bdbdbd;
-  border-radius: 6px;
-  padding: 8px 10px;
-  font-size: 12px;
-  background: #fff;
-  color: #111;
-  outline: none;
-  resize: vertical;
-}
+.field { display: grid; gap: 6px; }
+.label { font-size: 12px; font-weight: 700; }
 
 .row2 {
   display: grid;
@@ -282,8 +297,153 @@ function startVideo() {
   cursor: pointer;
 }
 
-.annoRow,
-.tagRow {
+.spacer { flex: 1; }
+
+.primaryBtn {
+  height: 34px;
+  border: none;
+  border-radius: 6px;
+  background: #1f4b7a;
+  color: #fff;
+  font-weight: 900;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.primaryBtn:hover, .setBtn:hover { filter: brightness(0.95); }
+
+/* CENTER preview */
+.preview {
+  background: var(--content-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.previewImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* RIGHT status */
+.statusPanel {
+  background: var(--sidebar-bg);
+  border-left: 1px solid #cfcfcf;
+  padding: 12px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+}
+
+.statusRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-dark);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dot { width: 8px; height: 8px; border-radius: 999px; background: #9a9a9a; }
+.dot.on { background: #2ecc71; }
+
+/* MODAL */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.videoModal {
+  width: min(1100px, 92vw);
+  height: min(640px, 84vh);
+  background: #efefef;
+  border: 1px solid #cfcfcf;
+  border-radius: 6px;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.35);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.videoModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.videoModalTitle { font-size: 14px; font-weight: 800; color: #111; }
+
+.closeX {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  color: #333;
+}
+
+.videoModalBody {
+  margin-top: 10px;
+  flex: 1;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 14px;
+  min-height: 0;
+}
+
+/* left pane */
+.modalLeft {
+  background: #f6f6f6;
+  border: 1px solid #d0d0d0;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.modalField {
+  display: grid;
+  gap: 6px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #d8d8d8;
+}
+
+.modalField:last-of-type { border-bottom: none; padding-bottom: 0; }
+
+.modalLabel { font-size: 12px; font-weight: 800; }
+
+.textInput {
+  height: 30px;
+  border: 1px solid #bdbdbd;
+  border-radius: 6px;
+  padding: 0 10px;
+  font-size: 12px;
+  background: #fff;
+  outline: none;
+}
+
+.textArea {
+  min-height: 80px;
+  border: 1px solid #bdbdbd;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+  background: #fff;
+  outline: none;
+  resize: vertical;
+}
+
+.annoRow, .tagRow {
   display: grid;
   grid-template-columns: 1fr 1fr 34px;
   gap: 8px;
@@ -305,12 +465,7 @@ function startVideo() {
   color: #1f4b7a;
 }
 
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 4px;
-}
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 
 .chip {
   display: inline-flex;
@@ -332,17 +487,27 @@ function startVideo() {
   padding: 0;
 }
 
-.chipX .material-symbols-outlined {
-  font-size: 16px;
-  color: #666;
+.chipX .material-symbols-outlined { font-size: 16px; color: #666; }
+
+.countBtn {
+  height: 30px;
+  border: none;
+  border-radius: 6px;
+  background: #1f4b7a;
+  color: #fff;
+  font-weight: 900;
+  font-size: 12px;
+  cursor: pointer;
+  width: 160px;
 }
 
-.spacer {
-  flex: 1;
-}
+.countResult { margin-top: 8px; font-size: 12px; font-weight: 700; color: #333; }
 
-.startBtn {
+.modalFooterLeft { margin-top: auto; display: flex; justify-content: flex-start; }
+
+.saveBtn {
   height: 34px;
+  width: 210px;
   border: none;
   border-radius: 6px;
   background: #1f4b7a;
@@ -352,53 +517,29 @@ function startVideo() {
   cursor: pointer;
 }
 
-.startBtn:hover,
-.setBtn:hover {
-  filter: brightness(0.95);
-}
+.saveBtn:hover, .countBtn:hover { filter: brightness(0.95); }
 
-/* CENTER: preview */
-.preview {
-  background: var(--content-bg);
+/* right pane */
+.modalRight {
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  background: #e3e3e3;
+  border: 1px solid #d0d0d0;
+  padding: 12px;
 }
 
-.previewImg {
+.modalPreviewFrame {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-}
-
-/* RIGHT: status */
-.statusPanel {
-  background: var(--sidebar-bg);
-  border-left: 1px solid #cfcfcf;
-  padding: 12px;
+  max-height: 520px;
+  border: 1px solid #8f8f8f;
+  background: #000;
   display: flex;
-  justify-content: flex-end;
-  align-items: flex-start;
-}
-
-.statusRow {
-  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  color: var(--text-dark);
-  font-size: 12px;
-  font-weight: 700;
+  justify-content: center;
 }
 
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: #9a9a9a;
-}
-
-.dot.on {
-  background: #2ecc71;
-}
+.modalPreviewImg { width: 100%; height: 100%; object-fit: cover; }
 </style>
