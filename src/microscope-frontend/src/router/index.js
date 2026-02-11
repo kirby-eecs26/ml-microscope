@@ -9,19 +9,17 @@ import Logging from "../window/Logging.vue";
 import Settings from "../window/Settings.vue";
 import Video from "../window/Video.vue";
 
-const routes = [
-  { path: "/", redirect: "/view" },
-  { path: "/view", component: View },
-  { path: "/gallery", component: Gallery },
-  { path: "/move", component: Move },
-  { path: "/image", component: Image },
-  { path: "/about", component: About },
-  { path: "/logging", component: Logging },
-  { path: "/settings", component: Settings },
-  { path: "/video", component: Video },
-];
-
 export default createRouter({
   history: createWebHistory(),
-  routes,
+  routes: [
+    { path: "/", redirect: "/view" },
+    { path: "/view", component: View },
+    { path: "/gallery", component: Gallery },
+    { path: "/move", component: Move },
+    { path: "/image", component: Image },
+    { path: "/about", component: About},
+    {path: "/logging", component: Logging},
+    {path: "/settings", component: Settings},
+    { path: "/video", component: Video },
+  ],
 });

@@ -29,10 +29,10 @@
           :key="img.id"
           class="card"
           :class="{ selected: selectedId === img.id }"
-          @click="selectedId = img.id"
+          @click="openDetails(img)"
         >
           <div class="thumb">
-            <img :src="img.thumbUrl" alt="thumbnail" />
+            <img :src="img.thumbUrl || img.url || '/cell.jpg'" alt="thumbnail" />
           </div>
 
           <div class="meta">
@@ -40,7 +40,7 @@
             <div class="datetime">{{ formatDate(img.datetime) }}</div>
 
             <div class="actions">
-              <button class="iconBtn" @click.stop="openDetails(img)">
+              <button class="iconBtn" @click.stop="openAnalysisModal(img)">
                 <span class="material-symbols-outlined">bar_chart</span>
               </button>
 
@@ -53,7 +53,7 @@
               </button>
             </div>
 
-            <button class="analyzeBtn" @click.stop="analyze(img)">
+            <button class="analyzeBtn" @click.stop="runAnalysis(img)">
               ANALYZE
             </button>
           </div>
@@ -132,13 +132,48 @@
       </div>
     </div>
   </div>
+
+    <!-- Analysis Modal -->
+    <div v-if="analysisOpen" class="analysisBackdrop" @click.self="closeAnalysisModal">
+      <div class="analysisModal">
+        <div class="analysisHeader">
+          <div class="analysisTitle">Analysis</div>
+          <button class="closeX" @click="closeAnalysisModal">×</button>
+        </div>
+
+        <div class="analysisDivider"></div>
+
+        <div class="analysisBody">
+          <div v-if="analysisItem?.analysis">
+            <div class="analysisLine">Cell Count: {{ analysisItem.analysis.cellCount }}</div>
+          </div>
+          <div v-else class="analysisHint">
+            No analysis found. Run <b>ANALYZE</b> first.
+          </div>
+        </div>
+
+        <div class="analysisFooter">
+          <button class="saveBtn" :disabled="!analysisItem?.analysis" @click="saveAnalysis">
+            SAVE ANALYSIS
+          </button>
+        </div>
+      </div>
+    </div>
+
 </template>
 
 <script setup>
 import { ref, computed } from "vue";
 
 const gallery = ref([
-  
+   {
+    id: 1,
+    filename: "sample_image.png",
+    url: "/cell.jpg",   // any public asset path
+    notes: "Demo sample image",
+    annotations: [],
+    tags: ["demo"]
+  }
 ]); // START EMPTY
 const query = ref("");
 const selectedId = ref("");
@@ -148,6 +183,10 @@ const modalItem = ref(null);
 const modalNotes = ref("");
 const modalAnnotations = ref([]);
 const modalTags = ref([]);
+
+
+const analysisOpen = ref(false);
+const analysisItem = ref(null);
 
 const annoKey = ref("");
 const annoValue = ref("");
@@ -165,6 +204,7 @@ function formatDate(d) {
 }
 
 function openDetails(img) {
+  selectedId.value = img.id;
   modalItem.value = img;
   modalNotes.value = img.notes || "";
   modalAnnotations.value = [...(img.annotations || [])];
@@ -197,7 +237,31 @@ function saveModal() {
   modalOpen.value = false;
 }
 
-function analyze(img) { console.log("ANALYZE", img.name); }
+function openAnalysisModal(img) {
+  analysisItem.value = img;
+  analysisOpen.value = true;
+}
+
+function closeAnalysisModal() {
+  analysisOpen.value = false;
+  analysisItem.value = null;
+}
+
+function runAnalysis(img) {
+  // Demo-only: store results on the image object (replace with backend call later)
+  img.analysis = {
+    cellCount: img.analysis?.cellCount ?? 25,
+    ranAt: new Date().toISOString(),
+  };
+  console.log("ANALYZE", img.name, img.analysis);
+}
+
+function saveAnalysis() {
+  if (!analysisItem.value?.analysis) return;
+  console.log("SAVE ANALYSIS", analysisItem.value.id, analysisItem.value.analysis);
+  closeAnalysisModal();
+}
+
 function downloadOne(img) { console.log("DOWNLOAD", img.name); }
 function deleteOne(img) {
   gallery.value = gallery.value.filter(x => x.id !== img.id);
@@ -293,7 +357,7 @@ function downloadAll() { console.log("DOWNLOAD ALL"); }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, 240px);
+  grid-template-columns: repeat(auto-fit, 210px);
   gap: 22px;
 }
 
@@ -309,7 +373,7 @@ function downloadAll() { console.log("DOWNLOAD ALL"); }
 }
 
 .thumb {
-  height: 140px;
+  height: 120px;
   background: #ccc;
 }
 
@@ -343,4 +407,315 @@ function downloadAll() { console.log("DOWNLOAD ALL"); }
   color: #fff;
   border-color: #1f4b7a;
 }
+
+
+/* Card contents */
+.meta {
+  position: relative;
+  padding: 10px 10px 12px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto auto;
+  column-gap: 8px;
+  row-gap: 6px;
+  border-top: 1px solid #bdbdbd;
+  background: transparent;
+}
+
+.filename {
+  grid-column: 1 / 2;
+  grid-row: 1;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.datetime {
+  grid-column: 1 / 2;
+  grid-row: 2;
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.actions {
+  grid-column: 2 / 3;
+  grid-row: 1 / 3;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.iconBtn {
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.iconBtn .material-symbols-outlined {
+  font-size: 18px;
+  color: #111;
+}
+
+.card.selected .iconBtn .material-symbols-outlined {
+  color: #fff;
+}
+
+.analyzeBtn {
+  grid-column: 1 / 2;
+  grid-row: 3;
+  justify-self: start;
+  height: 22px;
+  padding: 0 10px;
+  border: 1px solid #bdbdbd;
+  background: #fff;
+  color: #333;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.card.selected .analyzeBtn {
+  background: transparent;
+  color: #fff;
+  border-color: rgba(255,255,255,0.7);
+}
+
+/* Details modal */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.modal {
+  width: 520px;
+  max-width: 90vw;
+  background: #f6f6f6;
+  border-radius: 6px;
+  border: 1px solid #cfcfcf;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  padding: 14px 16px;
+  font-size: 12px;
+}
+
+.modalTitle {
+  font-weight: 800;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.rowLine {
+  font-size: 12px;
+  padding: 5px 0;
+  border-top: 1px solid #d8d8d8;
+}
+
+.rowLine:first-of-type {
+  border-top: none;
+}
+
+.divider {
+  height: 1px;
+  background: #d8d8d8;
+  margin: 14px 0;
+}
+
+.section .label {
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.textArea {
+  width: 100%;
+  min-height: 70px;
+  border: 1px solid #bdbdbd;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+  background: #fff;
+  outline: none;
+  resize: vertical;
+}
+
+.annoRow,
+.tagRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.miniInput {
+  height: 28px;
+  border: 1px solid #bdbdbd;
+  border-radius: 6px;
+  padding: 0 10px;
+  font-size: 12px;
+  background: #fff;
+  outline: none;
+  min-width: 0;
+}
+
+.plusBtn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.plusBtn .material-symbols-outlined {
+  font-size: 22px;
+  color: #1f4b7a;
+}
+
+.chips {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  border: 1px solid #bdbdbd;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.chipX {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.chipX .material-symbols-outlined {
+  font-size: 16px;
+  color: #666;
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.okBtn {
+  height: 30px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 6px;
+  background: #1f4b7a;
+  color: #fff;
+  font-weight: 800;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* Analysis modal */
+.analysisBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.analysisModal {
+  width: min(1100px, 92vw);
+  height: min(560px, 80vh);
+  background: #f7f7f7;
+  border: 1px solid #cfcfcf;
+  border-radius: 6px;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.35);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.analysisHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.analysisTitle {
+  font-size: 14px;
+  font-weight: 800;
+  color: #111;
+}
+
+.closeX {
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  color: #333;
+}
+
+.analysisDivider {
+  height: 1px;
+  background: #d4d4d4;
+  margin: 12px 0;
+}
+
+.analysisBody {
+  flex: 1;
+  font-size: 12px;
+  color: #333;
+}
+
+.analysisLine {
+  padding: 6px 0;
+}
+
+.analysisHint {
+  opacity: 0.85;
+}
+
+.analysisFooter {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.saveBtn {
+  height: 44px;
+  min-width: 240px;
+  border: none;
+  border-radius: 8px;
+  background: #1f4b7a;
+  color: #fff;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.saveBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 </style>
