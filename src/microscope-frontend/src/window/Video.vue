@@ -1,57 +1,70 @@
 <template>
-  <div class="imagePage">
-    <!-- Left control panel -->
+  <div class="videoPage">
+    <!-- LEFT: only Resolution + Frame rate -->
     <section class="controls">
-      <div class="header">IMAGE</div>
+      <div class="controlTitle">VIDEO</div>
 
-      <div class="block">
+      <div class="field">
         <div class="label">Resolution</div>
-        <div class="segmented">
-          <button class="segBtn" :class="{ active: resolution === 'FULL' }" @click="resolution = 'FULL'">
-            FULL
-          </button>
-          <button class="segBtn" :class="{ active: resolution === 'RAW' }" @click="resolution = 'RAW'">
-            RAW
-          </button>
+        <div class="row2">
+          <button class="pill" :class="{ active: resolution === 'FULL' }" @click="resolution = 'FULL'">FULL</button>
+          <button class="pill" :class="{ active: resolution === 'RAW' }" @click="resolution = 'RAW'">RAW</button>
         </div>
       </div>
 
-      <button class="captureBtn" @click="capture">
-        CAPTURE
-      </button>
-    </section>
-
-    <!-- Live preview -->
-    <section class="preview">
-      <CameraPreview />
-    </section>
-
-    <!-- Image Modal -->
-    <div v-if="imageModalOpen" class="backdrop" @click.self="closeCaptureModal">
-      <div class="imageModal">
-        <!-- Modal Header -->
-        <div class="imageModalHeader">
-          <div class="imageModalTitle">Image</div>
-          <button class="closeX" @click="closeCaptureModal">x</button>
+      <div class="field">
+        <div class="label">Frames-per-Minute (FPM)</div>
+        <div class="row2">
+          <button class="pill" :class="{ active: frameRate === 60 }" @click="setPreset(60)">60</button>
+          <button class="pill" :class="{ active: frameRate === 30 }" @click="setPreset(30)">30</button>
         </div>
 
-        <!-- Modal Body -->
-        <div class="imageModalBody">
-          <div class="modalLeft">
+        <div class="rowCustom">
+          <input class="miniInput" v-model.number="customRate" type="number" placeholder="fpm" min="1" />
+          <button class="setBtn" @click="setCustom">SET</button>
+        </div>
+      </div>
 
-            <!-- Filename -->
+      <div class="spacer"></div>
+
+      <button v-if="!recording" class="primaryBtn" @click="startRecording">START VIDEO</button>
+      <button v-else class="primaryBtn" @click="stopRecording">STOP VIDEO</button>
+    </section>
+
+    <!-- CENTER preview -->
+    <section class="preview">
+      <img class="previewImg" src="/cell.jpg" alt="Microscope preview" />
+    </section>
+
+    <!-- RIGHT status -->
+    <section class="statusPanel">
+      <div class="statusRow">
+        <span class="dot" :class="{ on: connected }"></span>
+        <span class="statusText">{{ connected ? "Connected" : "Disconnected" }}</span>
+      </div>
+    </section>
+
+    <!-- STOP -> Modal -->
+    <div v-if="stopModalOpen" class="backdrop" @click.self="closeStopModal">
+      <div class="videoModal">
+        <div class="videoModalHeader">
+          <div class="videoModalTitle">Video</div>
+          <button class="closeX" @click="closeStopModal">×</button>
+        </div>
+
+        <div class="videoModalBody">
+          <!-- Left pane in modal -->
+          <div class="modalLeft">
             <div class="modalField">
               <div class="modalLabel">Filename</div>
               <input class="textInput" v-model="modalFilename" placeholder="filename" />
             </div>
 
-            <!-- Notes -->
             <div class="modalField">
               <div class="modalLabel">Notes</div>
               <textarea class="textArea" v-model="modalNotes" placeholder="Notes"></textarea>
             </div>
 
-            <!-- Annotations -->
             <div class="modalField">
               <div class="modalLabel">Annotations</div>
               <div class="annoRow">
@@ -61,6 +74,7 @@
                   <span class="material-symbols-outlined">add_circle</span>
                 </button>
               </div>
+
               <div v-if="modalAnnotations.length" class="chips">
                 <div class="chip" v-for="(a, i) in modalAnnotations" :key="i">
                   {{ a.key }}: {{ a.value }}
@@ -71,7 +85,6 @@
               </div>
             </div>
 
-            <!-- Tags -->
             <div class="modalField">
               <div class="modalLabel">Tags</div>
               <div class="tagRow">
@@ -80,6 +93,7 @@
                   <span class="material-symbols-outlined">add_circle</span>
                 </button>
               </div>
+
               <div v-if="modalTags.length" class="chips">
                 <div class="chip" v-for="(t, i) in modalTags" :key="i">
                   {{ t }}
@@ -90,100 +104,80 @@
               </div>
             </div>
 
-            <!-- Count Cells -->
             <div class="modalField">
               <div class="modalLabel">Analyze</div>
-              <button class="countBtn">COUNT CELLS</button>
+              <button class="countBtn" @click="countCells">COUNT CELLS</button>
+              <div v-if="cellCount !== null" class="countResult">Cell Count: {{ cellCount }}</div>
             </div>
 
-            <!-- Save to Gallery -->
             <div class="modalFooterLeft">
               <button class="saveBtn" @click="saveToGallery">SAVE TO GALLERY</button>
             </div>
           </div>
 
+          <!-- Right preview in modal -->
           <div class="modalRight">
             <div class="modalPreviewFrame">
-              <!-- Image Placeholder -->
-               <img class="modalPreviewImg" src="/cell.jpg" alt="Captured preview" />
+              <img class="modalPreviewImg" src="/cell.jpg" alt="Video preview" />
             </div>
           </div>
         </div>
-
       </div>
     </div>
   </div>
-
 </template>
 
 <script setup>
-import { captureImage} from "../api/imageApi";
 import { ref } from "vue";
-import CameraPreview from "../components/CameraPreview.vue";
-import { useRouter } from 'vue-router';
 
-const router = useRouter();
+const connected = ref(true);
 
-const resolution = ref("FULL");
-const status = ref("");
-const busy = ref(false);
+const resolution = ref("FULL"); // FULL | RAW
+const frameRate = ref(60);      // FPM (demo)
+const customRate = ref(null);
 
-// Image Capture reference
-const capturedImageId = ref(null);
+const recording = ref(false);
 
-// Modal Constants
-const imageModalOpen = ref(false);
-
-const modalFilename = ref("");
+// STOP modal
+const stopModalOpen = ref(false);
+const modalFilename = ref("filename");
 const modalNotes = ref("");
 const modalAnnotations = ref([]);
 const modalTags = ref([]);
-
 const annoKey = ref("");
 const annoValue = ref("");
 const tagInput = ref("");
+const cellCount = ref(null);
 
-async function capture() {
-  try {
-    busy.value = true;
-    status.value = "Capturing image...";
-    const payload = {
-      filename: modalFilename.value,
-      resolution: resolution.value,
-      notes: modalNotes.value,
-      annotations: modalAnnotations.value,
-      tags: modalTags.value,
-    };
-
-    const result = await captureImage(payload);
-    console.log("CAPTURE RESULT:", result); // browser console proof
-    capturedImageId.value = result.saved_as ?? result.id ?? "";
-
-    status.value = `Captured: ${capturedImageId.value}`;
-  } catch (err) {
-    console.error(err);
-    status.value = `Error: ${err.message}`;
-  } finally {
-    busy.value = false;
-  }
-
-  openCaptureModal();
+function setPreset(n) {
+  frameRate.value = n;
+  customRate.value = null;
 }
 
-// Modal Functions
-function openCaptureModal() {
-  modalNotes.value = "";
-  modalAnnotations.value = [];
-  modalTags.value = [];
-  annoKey.value = "";
-  annoValue.value = "";
-  tagInput.value = "";
-
-  imageModalOpen.value = true;
+function setCustom() {
+  const n = Number(customRate.value);
+  if (!Number.isFinite(n) || n <= 0) return;
+  frameRate.value = n;
 }
 
-function closeCaptureModal() {
-  imageModalOpen.value = false;
+function startRecording() {
+  recording.value = true;
+  console.log("START RECORDING", { resolution: resolution.value, frameRate: frameRate.value });
+}
+
+function stopRecording() {
+  recording.value = false;
+  console.log("STOP RECORDING");
+  openStopModal();
+}
+
+function openStopModal() {
+  stopModalOpen.value = true;
+  cellCount.value = null;
+}
+
+function closeStopModal() {
+  stopModalOpen.value = false;
 }
 
 function addAnnotation() {
@@ -200,258 +194,191 @@ function addTag() {
   tagInput.value = "";
 }
 
-async function saveToGallery() {
-  console.log("UPDATE METADATA FOR:", capturedImageId.value);
-  console.log({
-    filename: modalFilename.value.trim() || capturedImageId.value,
+function countCells() {
+  // demo placeholder
+  cellCount.value = 25;
+}
+
+function saveToGallery() {
+  const payload = {
+    filename: modalFilename.value.trim(),
     notes: modalNotes.value,
     annotations: modalAnnotations.value,
     tags: modalTags.value,
-  });
-
-  // TODO: Replace with actual API call, e.g.:
-  // await updateImageMetadata(capturedImageId.value, { ... });
-
-  // For now, just close the modal
-  closeCaptureModal();
-  router.push('/gallery');
+    analysis: cellCount.value === null ? null : { cellCount: cellCount.value },
+    resolution: resolution.value,
+    frameRate: frameRate.value,
+  };
+  console.log("SAVE TO GALLERY:", payload);
+  closeStopModal();
 }
-
-
 </script>
 
 <style scoped>
-.imagePage {
-  display: grid;
-  grid-template-columns: 260px 1fr;
+.videoPage {
   height: calc(100vh - 36px);
+  display: grid;
+  grid-template-columns: 260px 1fr 220px;
+  background: var(--content-bg);
 }
 
-/* Left panel */
+/* LEFT controls */
 .controls {
-  background: #efefef;
-  color: #111;
+  background: var(--sidebar-bg);
+  color: var(--text-dark);
   border-right: 1px solid #cfcfcf;
-  padding: 12px;
+  padding: 14px 12px;
   display: flex;
   flex-direction: column;
+  gap: 12px;
 }
 
-.header {
+.controlTitle {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.6px;
-  margin-bottom: 10px;
-  opacity: 0.85;
+  opacity: 0.35;
+  margin-bottom: 2px;
 }
 
-.block {
-  margin-bottom: 10px;
-}
+.field { display: grid; gap: 6px; }
+.label { font-size: 12px; font-weight: 700; }
 
-.label {
-  font-size: 12px;
-  font-weight: 700;
-  margin-bottom: 6px;
-}
-
-.divider {
-  height: 1px;
-  background: #d0d0d0;
-  margin: 10px 0;
-}
-
-.textInput {
-  width: 100%;
-  height: 28px;
-  border: 1px solid #bdbdbd;
-  border-radius: 6px;
-  padding: 0 10px;
-  font-size: 12px;
-  background: #fff;
-}
-
-.textArea {
-  width: 100%;
-  height: 78px;
-  border: 1px solid #bdbdbd;
-  border-radius: 6px;
-  padding: 8px 10px;
-  font-size: 12px;
-  resize: none;
-  background: #fff;
-}
-
-/* Resolution buttons */
-.segmented {
+.row2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
 
-.segBtn {
-  height: 30px;
-  border-radius: 6px;
-  border: 1px solid #1f4b7a;
-  background: #fff;
-  color: #1f4b7a;
-  font-weight: 700;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.segBtn.active {
-  background: #1f4b7a;
-  color: #fff;
-}
-
-/* Key/value rows */
-.row {
+.rowCustom {
   display: grid;
-  grid-template-columns: 1fr 1fr 32px;
-  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
   align-items: center;
 }
 
+.pill {
+  height: 30px;
+  border: 1px solid #bdbdbd;
+  background: #fff;
+  color: #333;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pill.active {
+  background: #1f4b7a;
+  color: #fff;
+  border-color: #1f4b7a;
+}
+
 .miniInput {
-  width: 100%;
-  height: 28px;
+  height: 30px;
   border: 1px solid #bdbdbd;
   border-radius: 6px;
   padding: 0 10px;
   font-size: 12px;
   background: #fff;
+  color: #111;
+  outline: none;
+  min-width: 0;
 }
 
-.iconBtn {
-  width: 32px;
-  height: 32px;
+.setBtn {
+  height: 30px;
   border: none;
-  background: transparent;
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-}
-
-.iconBtn .material-symbols-outlined {
-  font-size: 22px;
-  color: #1f4b7a;
-}
-
-/* Chips list */
-.list {
-  margin-top: 8px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: #ffffff;
-  border: 1px solid #cfcfcf;
-  border-radius: 999px;
-  padding: 4px 8px 4px 10px;
-  font-size: 11px;
-}
-
-.chipText {
-  white-space: nowrap;
-}
-
-.chipX {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  padding: 0;
-}
-
-.chipX .material-symbols-outlined {
-  font-size: 16px;
-  color: #666;
-}
-
-/* Buttons */
-.grayBtn {
-  width: 100%;
-  height: 34px;
   border-radius: 6px;
-  border: 1px solid #8a8a8a;
-  background: #e5e5e5;
-  color: #333;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.grayBtn:hover {
-  filter: brightness(0.98);
-}
-
-.spacer {
-  flex: 1;
-}
-
-.captureBtn {
-  width: 100%;
-  height: 40px;
-  border-radius: 6px;
-  border: none;
   background: #1f4b7a;
   color: #fff;
   font-weight: 800;
-  letter-spacing: 0.6px;
+  font-size: 12px;
   cursor: pointer;
-  margin-top: auto;
 }
 
-.captureBtn:hover {
-  filter: brightness(1.05);
+.spacer { flex: 1; }
+
+.primaryBtn {
+  height: 34px;
+  border: none;
+  border-radius: 6px;
+  background: #1f4b7a;
+  color: #fff;
+  font-weight: 900;
+  font-size: 12px;
+  cursor: pointer;
 }
 
-/* Preview */
+.primaryBtn:hover, .setBtn:hover { filter: brightness(0.95); }
+
+/* CENTER preview */
 .preview {
-  background: #d9d9d9;
+  background: var(--content-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
 }
 
-/* ===== Modal styles ===== */
+.previewImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* RIGHT status */
+.statusPanel {
+  background: var(--sidebar-bg);
+  border-left: 1px solid #cfcfcf;
+  padding: 12px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+}
+
+.statusRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-dark);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dot { width: 8px; height: 8px; border-radius: 999px; background: #9a9a9a; }
+.dot.on { background: #2ecc71; }
+
+/* MODAL */
 .backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0,0,0,0.6);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 9999;
 }
 
-.imageModal {
+.videoModal {
   width: min(1100px, 92vw);
   height: min(640px, 84vh);
   background: #efefef;
   border: 1px solid #cfcfcf;
   border-radius: 6px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 18px 50px rgba(0,0,0,0.35);
   padding: 14px 16px;
   display: flex;
   flex-direction: column;
 }
 
-.imageModalHeader {
+.videoModalHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.imageModalTitle {
-  font-size: 14px;
-  font-weight: 800;
-  color: #111;
-}
+.videoModalTitle { font-size: 14px; font-weight: 800; color: #111; }
 
 .closeX {
   width: 32px;
@@ -464,7 +391,7 @@ async function saveToGallery() {
   color: #333;
 }
 
-.imageModalBody {
+.videoModalBody {
   margin-top: 10px;
   flex: 1;
   display: grid;
@@ -473,6 +400,7 @@ async function saveToGallery() {
   min-height: 0;
 }
 
+/* left pane */
 .modalLeft {
   background: #f6f6f6;
   border: 1px solid #d0d0d0;
@@ -490,15 +418,9 @@ async function saveToGallery() {
   border-bottom: 1px solid #d8d8d8;
 }
 
-.modalField:last-of-type {
-  border-bottom: none;
-  padding-bottom: 0;
-}
+.modalField:last-of-type { border-bottom: none; padding-bottom: 0; }
 
-.modalLabel {
-  font-size: 12px;
-  font-weight: 800;
-}
+.modalLabel { font-size: 12px; font-weight: 800; }
 
 .textInput {
   height: 30px;
@@ -521,22 +443,11 @@ async function saveToGallery() {
   resize: vertical;
 }
 
-.annoRow,
-.tagRow {
+.annoRow, .tagRow {
   display: grid;
   grid-template-columns: 1fr 1fr 34px;
   gap: 8px;
   align-items: center;
-}
-
-.miniInput {
-  height: 28px;
-  border: 1px solid #bdbdbd;
-  border-radius: 6px;
-  padding: 0 10px;
-  font-size: 12px;
-  background: #fff;
-  width: 100%;
 }
 
 .plusBtn {
@@ -554,12 +465,7 @@ async function saveToGallery() {
   color: #1f4b7a;
 }
 
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 6px;
-}
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 
 .chip {
   display: inline-flex;
@@ -581,10 +487,7 @@ async function saveToGallery() {
   padding: 0;
 }
 
-.chipX .material-symbols-outlined {
-  font-size: 16px;
-  color: #666;
-}
+.chipX .material-symbols-outlined { font-size: 16px; color: #666; }
 
 .countBtn {
   height: 30px;
@@ -594,16 +497,13 @@ async function saveToGallery() {
   color: #fff;
   font-weight: 900;
   font-size: 12px;
-  cursor: default;  /* inert – no pointer */
+  cursor: pointer;
   width: 160px;
-  opacity: 0.8;
 }
 
-.modalFooterLeft {
-  margin-top: auto;
-  display: flex;
-  justify-content: flex-start;
-}
+.countResult { margin-top: 8px; font-size: 12px; font-weight: 700; color: #333; }
+
+.modalFooterLeft { margin-top: auto; display: flex; justify-content: flex-start; }
 
 .saveBtn {
   height: 34px;
@@ -617,10 +517,9 @@ async function saveToGallery() {
   cursor: pointer;
 }
 
-.saveBtn:hover {
-  filter: brightness(0.95);
-}
+.saveBtn:hover, .countBtn:hover { filter: brightness(0.95); }
 
+/* right pane */
 .modalRight {
   min-height: 0;
   display: flex;
@@ -642,10 +541,5 @@ async function saveToGallery() {
   justify-content: center;
 }
 
-.modalPreviewImg {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
+.modalPreviewImg { width: 100%; height: 100%; object-fit: cover; }
 </style>

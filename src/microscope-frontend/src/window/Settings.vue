@@ -6,12 +6,8 @@
       <div class="settingsSection">
         <div class="sectionTitle">Application Settings</div>
         <div class="settingsNav">
-          <div class="navItem active">
-            Display
-          </div>
-          <div class="navItem">
-            Features
-          </div>
+          <div class="navItem" :class="{ active: activeTab === 'display' }" @click="activeTab = 'display'">Display</div>
+          <div class="navItem" :class="{ active: activeTab === 'features' }" @click="activeTab = 'features'">Features</div>
         </div>
       </div>
 
@@ -22,18 +18,10 @@
       <div class="settingsSection">
         <div class="sectionTitle" id="MicroscopeSettingsTitle">Microscope Settings</div>
         <div class="settingsNav">
-          <div class="navItem">
-            Camera
-          </div>
-          <div class="navItem">
-            Stage
-          </div>
-          <div class="navItem">
-            Camera / Stage Mapping
-          </div>
-          <div class="navItem">
-            General
-          </div>
+          <div class="navItem" :class="{ active: activeTab === 'camera' }" @click="activeTab = 'camera'">Camera</div>
+          <div class="navItem" :class="{ active: activeTab === 'stage' }" @click="activeTab = 'stage'">Stage</div>
+          <div class="navItem" :class="{ active: activeTab === 'mapping' }" @click="activeTab = 'mapping'">Camera / Stage Mapping</div>
+          <div class="navItem" :class="{ active: activeTab === 'general' }" @click="activeTab = 'general'">General</div>
         </div>
       </div>
 
@@ -42,7 +30,7 @@
     <!-- Main settings content area -->
     <main class="settingsContent">
       <!-- Display settings (active tab) -->
-      <div class="displaySettings">
+      <div class="displaySettings" v-if="activeTab === 'display'">
         <h2 class="contentTitle">Display Settings</h2>
 
         <!-- Theme section -->
@@ -56,12 +44,41 @@
           </div>
         </div>
       </div>
+
+      <!-- Features Tab -->
+      <div class="featuresSettings" v-if="activeTab === 'features'">
+        <h2 class="contentTitle">Features Settings</h2>
+      </div>
+
+      <!-- Camera Tab -->
+      <div class="cameraSettings" v-if="activeTab === 'camera'">
+        <h2 class="contentTitle">Camera Settings</h2>
+      </div>
+
+      <!-- Stage Tab -->
+      <div class="stageSettings" v-if="activeTab === 'stage'">
+        <h2 class="contentTitle">Stage Settings</h2>
+      </div>
+
+      <!-- Camera/Stage Mapping Tab -->
+      <div class="mappingSettings" v-if="activeTab === 'mapping'">
+        <h2 class="contentTitle">Camera/Stage Mapping Settings</h2>
+      </div>
+
+      <!-- General Tab -->
+      <div class="generalSettings" v-if="activeTab === 'general'">
+        <h2 class="contentTitle">General Settings</h2>
+      </div>
+
     </main>
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue'
+
+// Active tab state
+const activeTab = ref('display')
 
 // Theme selection
 const selectedTheme = ref('system')
