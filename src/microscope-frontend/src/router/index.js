@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
 
+import Connect from "../window/Connect.vue";
 import View from "../window/View.vue";
 import Gallery from "../window/Gallery.vue";
 import Move from "../window/Move.vue";
@@ -12,7 +13,8 @@ import Video from "../window/Video.vue";
 export default createRouter({
   history: createWebHistory(),
   routes: [
-    { path: "/", redirect: "/view" },
+    { path: "/", redirect: "/connect" },
+    { path: "/connect", component: Connect, meta: { hideSidebar: true }},
     { path: "/view", component: View },
     { path: "/gallery", component: Gallery },
     { path: "/move", component: Move },
