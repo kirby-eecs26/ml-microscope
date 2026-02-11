@@ -1,7 +1,7 @@
 <template>
   <div class="shell">
-    <Sidebar />
-    <main class="content">
+    <Sidebar v-if="!$route.meta.hideSidebar" />  
+    <main class="content" :class="{ 'full-width': $route.meta.hideSidebar }">
       <RouterView />
     </main>
   </div>

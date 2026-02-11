@@ -42,12 +42,44 @@
       <span class="label">Settings</span>
     </RouterLink>
 
-    <a class="nav plain" href="#">
+    <a class="nav plain" href="#" @click.prevent="openExitModal">
       <span class="material-symbols-outlined icon">power_settings_new</span>
       <span class="label">Exit</span>
     </a>
   </aside>
+
+  <ExitModal :visible="exitModalVisible" @shutdown="shutdown" @restart="restart" @cancel="closeExitModal" @close="closeExitModal"/>
+
 </template>
+
+<script setup>
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
+import ExitModal from './Exit.vue';
+
+const router = useRouter();
+const exitModalVisible = ref(false);
+
+function openExitModal() {
+  exitModalVisible.value = true;
+}
+
+function closeExitModal() {
+  exitModalVisible.value = false;
+}
+
+function shutdown() {
+  console.log('Shutdown clicked – not implemented');
+  closeExitModal(); 
+  router.push('/');
+}
+
+function restart() {
+  console.log('Restart clicked – not implemented');
+  closeExitModal();
+  router.push('/');
+}
+</script>
 
 <style scoped>
 .sidebar {
@@ -59,7 +91,6 @@
   gap: 6px;
 }
 
-/* RouterLink applies .router-link-active automatically */
 .nav {
   display: flex;
   flex-direction: column;

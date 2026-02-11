@@ -3,14 +3,7 @@
 
 numpy
 opencv-python-headless
-#time
-#math
-#ctypes.wintypes
-#http.client
-#json
 requests
 fastapi
-#fastapi.middleware.cors
 pydantic
-#pathlib
-#os
+uvicorn[standard]

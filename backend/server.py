@@ -63,9 +63,16 @@ def checkCords(x, y, z) -> bool:
 #
 #
 
+def get_position(timeout=8.0) -> dict:
+    """Returns current stage position from OpenFlexure."""
+    r = requests.get(f"{API_BASE}api/v2/instrument/state/stage/position", timeout=timeout)
+    r.raise_for_status()
+    pos = r.json()
+    pos["x"] = -pos["x"]
+    return pos
 
-
-def moveButton(x: int, y: int, z: int, timeout = 2.0):
+def moveButton(x: int, y: int, z: int, timeout = 60.0):
+    x = -x
     print("moveButton")
     try:
         if checkCords(x, y, z):

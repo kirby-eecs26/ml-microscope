@@ -1,7 +1,7 @@
 import cv2
 from backend.count import count_from_rgb
 
-img = cv2.imread("tests/unit/ml/output14.jpeg")
+img = cv2.imread("tests/unit/ml/output15.jpeg")
 if img is None:
     raise RuntimeError("Could not load image")
 
