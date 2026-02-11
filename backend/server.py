@@ -21,8 +21,8 @@ from libraries.GlobalVariables import (API_BASE, POS_X_BOUND, POS_Z_BOUND, NEG_Z
 # def getCurrentPosition(timeout = 2.0):
 #     print("getCurrentPosition")
 #     try:
-#         response = requests.get(f"{API_BASE}api/v2/instrument/state/stage/position", timeout=timeout)
-#         return response.json()
+#         response = (requests.get(f"{API_BASE}api/v2/instrument/state/stage/position", timeout=timeout)).json()
+#         return (response.x, response.y, response.z) #return x y z tuple
 #
 #     except Exception as e:
 #         print("Error getting current position")
@@ -50,7 +50,18 @@ def checkCords(x, y, z) -> bool:
         return False
 
 
-#def moveArrows():
+# def moveArrows():
+#     print("moveArrows")
+#     try:
+#         if :
+#             payload = {
+#                 "x": new_cords.x,
+#                 "y": new_cords.y,
+#                 "z": new_cords.z,
+#                 "absolute": False
+#             }
+#
+#
 
 
 
@@ -132,11 +143,11 @@ def captureVideo(fpm: int, payload: dict, duration: float = MAX_DURATION_SEC) ->
     return video
 
 
-def download():
-    """download img api call"""
-    print("download")
+# def download():
+#     """download img api call"""
+#     print("download")
 
-if __name__ == "__main__":
-    listCaptures()
-
+# if __name__ == "__main__":
+#     listCaptures()
+#
 
