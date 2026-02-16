@@ -118,7 +118,7 @@ def listCaptures(timeout = 2.0):
     """returns a list of all saved images on the local pi"""
     print("listCaptures")
     try:
-        response = requests.get(f"{API_BASE}api/v2/actions/camera/get", timeout=timeout)
+        response = requests.get(f"{API_BASE}api/v2/captures", timeout=timeout)
         response.raise_for_status()
         return response.json()
 
@@ -148,6 +148,13 @@ def captureVideo(fpm: int, payload: dict, duration: float = MAX_DURATION_SEC) ->
         # time.sleep(spf)
 
     return video
+
+def delete_capture(capture_id: str) -> bool:
+    url = f"{API_BASE}api/v2/captures/{capture_id}"
+    r = requests.delete(url, timeout=10)
+    if r.status_code in (200, 204):
+        return True
+    raise RuntimeError(f"Delete failed: {r.status_code} {r.text}")
 
 
 # def download():

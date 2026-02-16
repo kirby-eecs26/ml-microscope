@@ -43,3 +43,37 @@ export async function centerStage() {
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
+
+export async function listCaptures() {
+  const r = await fetch(`${BASE_URL}/captures`);
+  if (!r.ok) throw new Error(`captures failed: ${r.status}`);
+  return r.json();
+}
+
+export async function deleteCapture(captureId) {
+  const r = await fetch(`${BASE_URL}/captures/${encodeURIComponent(captureId)}`, {
+    method: "DELETE",
+  });
+  if (!r.ok) throw new Error(`delete failed: ${r.status}`);
+  return r.json().catch(() => ({}));
+}
+
+export async function analyzeCapture(captureId) {
+  const r = await fetch(`${BASE_URL}/analyze`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: captureId }),
+  });
+  if (!r.ok) throw new Error(`analyze failed: ${r.status}`);
+  return r.json();
+}
+
+export async function updateCaptureMetadata(captureId, payload) {
+  const r = await fetch(`${BASE_URL}/captures/${encodeURIComponent(captureId)}/metadata`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
