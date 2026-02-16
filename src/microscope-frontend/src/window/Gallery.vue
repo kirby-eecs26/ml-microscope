@@ -641,7 +641,7 @@ function closeAnalysisModal() {
   border: 1px solid #bdbdbd;
   border-radius: 6px;
   padding: 8px 10px;
-  font-size: 14px;
+  font-size: 14ggpx;
   background: #fff;
   outline: none;
   resize: vertical;
