@@ -105,7 +105,7 @@
           <div class="modalRight">
             <div class="modalPreviewFrame">
               <!-- Image Placeholder -->
-               <img class="modalPreviewImg" src="/cell.jpg" alt="Captured preview" />
+               <img class="modalPreviewImg" :src="previewUrl || '/cell.jpg'" alt="Captured preview" />
             </div>
           </div>
         </div>
@@ -117,7 +117,7 @@
 </template>
 
 <script setup>
-import { captureImage} from "../api/imageApi";
+import { captureImage, deleteCapture, updateCaptureMetadata } from "../api/imageApi";
 import { ref } from "vue";
 import CameraPreview from "../components/CameraPreview.vue";
 import { useRouter } from 'vue-router';
@@ -142,33 +142,51 @@ const modalTags = ref([]);
 const annoKey = ref("");
 const annoValue = ref("");
 const tagInput = ref("");
+const previewUrl = ref("");
+const lastCaptureIsRaw = ref(false);
 
 async function capture() {
   try {
     busy.value = true;
     status.value = "Capturing image...";
+
+    const isRaw = resolution.value === "RAW";
+
+    const annotationsDict = {};
+    for (const a of modalAnnotations.value) {
+      if (a?.key) annotationsDict[a.key] = a.value ?? "";
+    }
+    if (modalNotes.value?.trim()) annotationsDict["Notes"] = modalNotes.value.trim();
+
     const payload = {
-      filename: modalFilename.value,
-      resolution: resolution.value,
-      notes: modalNotes.value,
-      annotations: modalAnnotations.value,
+      filename: modalFilename.value?.trim() || "capture",
+      temporary: true,
+      use_video_port: isRaw,
+      bayer: isRaw,
+      annotations: annotationsDict,
       tags: modalTags.value,
     };
 
     const result = await captureImage(payload);
-    console.log("CAPTURE RESULT:", result); // browser console proof
-    capturedImageId.value = result.saved_as ?? result.id ?? "";
+    console.log("CAPTURE RESULT:", result);
+
+    const cap = result.capture;
+    capturedImageId.value = cap?.id ?? cap?.saved_as ?? cap?.filename ?? "";
+    const base = import.meta.env.VITE_API_BASE || "";
+    previewUrl.value = `${base}/captures/${encodeURIComponent(capturedImageId.value)}/image`;
+    console.log("PREVIEW URL:", previewUrl.value);
+    lastCaptureIsRaw.value = isRaw;
 
     status.value = `Captured: ${capturedImageId.value}`;
+    imageModalOpen.value = true;
   } catch (err) {
     console.error(err);
     status.value = `Error: ${err.message}`;
   } finally {
     busy.value = false;
   }
-
-  openCaptureModal();
 }
+
 
 // Modal Functions
 function openCaptureModal() {
@@ -182,8 +200,17 @@ function openCaptureModal() {
   imageModalOpen.value = true;
 }
 
-function closeCaptureModal() {
+async function closeCaptureModal() {
+  if (capturedImageId.value) {
+    try {
+      await deleteCapture(capturedImageId.value);
+    } catch (e) {
+      console.warn("Failed to delete temp capture:", e);
+    }
+  }
   imageModalOpen.value = false;
+  capturedImageId.value = null;
+  previewUrl.value = "";
 }
 
 function addAnnotation() {
@@ -200,21 +227,48 @@ function addTag() {
   tagInput.value = "";
 }
 
+function buildCapturePayload({ temporary }) {
+  const annotationsDict = {};
+
+  for (const a of modalAnnotations.value) {
+    if (a?.key?.trim()) annotationsDict[a.key.trim()] = String(a.value ?? "");
+  }
+
+  if (modalNotes.value?.trim()) annotationsDict["Notes"] = modalNotes.value.trim();
+
+  return {
+    filename: modalFilename.value?.trim() || "capture",
+    temporary,
+    use_video_port: lastCaptureIsRaw.value,
+    bayer: lastCaptureIsRaw.value,
+    annotations: annotationsDict,
+    tags: modalTags.value.map(t => t.trim()).filter(Boolean),
+  };
+}
+
 async function saveToGallery() {
-  console.log("UPDATE METADATA FOR:", capturedImageId.value);
-  console.log({
-    filename: modalFilename.value.trim() || capturedImageId.value,
-    notes: modalNotes.value,
-    annotations: modalAnnotations.value,
-    tags: modalTags.value,
-  });
+  try {
+    busy.value = true;
 
-  // TODO: Replace with actual API call, e.g.:
-  // await updateImageMetadata(capturedImageId.value, { ... });
+    const payload = buildCapturePayload({ temporary: false });
+    const res = await captureImage(payload);
+    const saved = res.capture;
 
-  // For now, just close the modal
-  closeCaptureModal();
-  router.push('/gallery');
+    if (capturedImageId.value) {
+      try { await deleteCapture(capturedImageId.value); } catch (e) { console.warn(e); }
+    }
+
+    imageModalOpen.value = false;
+    capturedImageId.value = null;
+    previewUrl.value = "";
+
+    router.push("/gallery");
+  } catch (e) {
+    console.error(e);
+    status.value = `Save failed: ${e.message}`;
+  } finally {
+    busy.value = false;
+  }
 }
 
 

@@ -29,13 +29,12 @@
           :key="img.id"
           class="card"
           :class="{ selected: selectedId === img.id }"
-          @click="openDetails(img)"
         >
-          <div class="thumb">
+          <div class="thumb" @click="openPreview(img)">
             <img :src="img.thumbUrl || img.url || '/cell.jpg'" alt="thumbnail" />
           </div>
 
-          <div class="meta">
+          <div class="meta" @click="openDetails(img)">
             <div class="filename">{{ img.name }}</div>
             <div class="datetime">{{ formatDate(img.datetime) }}</div>
 
@@ -59,6 +58,7 @@
           </div>
         </div>
       </div>
+
 
       <!-- Pagination -->
       <footer class="pager">
@@ -159,115 +159,212 @@
         </div>
       </div>
     </div>
+    <!-- Fullscreen Preview -->
+    <div v-if="previewOpen" class="imgBackdrop" @click="closePreview">
+      <div class="imgModal" @click.stop>
+        <button class="imgClose" @click="closePreview">×</button>
+        <img
+          class="imgFull"
+          :src="previewItem?.url || previewItem?.thumbUrl || '/cell.jpg'"
+          alt="full"
+        />
+        <div class="imgCaption">
+          <div><b>{{ previewItem?.name }}</b></div>
+          <div class="muted">{{ formatDate(previewItem?.datetime) }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Details Modal -->
+    <div v-if="detailsOpen" class="backdrop" @click.self="closeDetails">
+      <div class="modal" @click.stop>
+        <div class="modalTitle">{{ detailsItem?.name }}</div>
+
+        <div class="rowLine"><b>Time:</b> {{ formatDate(detailsItem?.datetime) }}</div>
+        <div class="rowLine"><b>ID:</b> {{ detailsItem?.id }}</div>
+        <div class="rowLine"><b>Format:</b> {{ detailsItem?.format || 'jpeg' }}</div>
+        <div class="rowLine"><b>Resolution:</b> {{ displayResolution(detailsItem) }}</div>
+
+        <div class="divider"></div>
+
+        <div class="section">
+          <div class="label">Tags</div>
+          <div class="chips" v-if="(detailsItem?.tags || []).length">
+            <div class="chip" v-for="(t, i) in detailsItem.tags" :key="i">
+              {{ t }}
+            </div>
+          </div>
+          <div v-else class="muted">No tags</div>
+        </div>
+
+        <div class="modalFooter">
+          <button class="okBtn" @click="closeDetails">OK</button>
+        </div>
+      </div>
+    </div>
 
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
+import { listCaptures, deleteCapture, analyzeCapture } from "../api/imageApi";
 
-const gallery = ref([
-   {
-    id: 1,
-    filename: "sample_image.png",
-    url: "/cell.jpg",   // any public asset path
-    notes: "Demo sample image",
-    annotations: [],
-    tags: ["demo"]
-  }
-]); // START EMPTY
+const gallery = ref([]); // will be loaded from backend
 const query = ref("");
-const selectedId = ref("");
 
-const modalOpen = ref(false);
-const modalItem = ref(null);
-const modalNotes = ref("");
-const modalAnnotations = ref([]);
-const modalTags = ref([]);
+/** Fullscreen preview (lightbox) */
+const previewOpen = ref(false);
+const previewItem = ref(null);
 
+/** Delete confirmation */
+const confirmOpen = ref(false);
+const confirmItem = ref(null);
+const deleting = ref(false);
+const deleteError = ref("");
 
+/** Analysis modal */
 const analysisOpen = ref(false);
 const analysisItem = ref(null);
-
-const annoKey = ref("");
-const annoValue = ref("");
-const tagInput = ref("");
+const analysisLoading = ref(false);
+const analysisError = ref("");
+const analysisResult = ref(null); // { blobCount, overlayImageUrl, maskImageUrl }
 
 const filtered = computed(() => {
-  if (!query.value) return gallery.value;
-  return gallery.value.filter(img =>
-    img.name.toLowerCase().includes(query.value.toLowerCase())
-  );
+  const q = query.value?.trim().toLowerCase();
+  if (!q) return gallery.value;
+  return gallery.value.filter((img) => (img.name || "").toLowerCase().includes(q));
 });
 
 function formatDate(d) {
-  return d ? d.replace("T", " ").slice(0, 19) : "";
+  return d ? String(d).replace("T", " ").slice(0, 19) : "";
 }
+
+/**
+ * Normalize whatever your backend returns into:
+ * { id, name, datetime, url, thumbUrl }
+ */
+function normalizeCaptures(payload) {
+  const items = payload?.captures ?? payload ?? [];
+  const base = import.meta.env.VITE_API_BASE || "";
+
+  return items.map((c) => {
+    const id = c.id;
+    return {
+      id,
+      name: c.name ?? "capture",
+      datetime: c.time ?? "",
+      url: `${base}/captures/${encodeURIComponent(id)}/image`,
+      thumbUrl: `${base}/captures/${encodeURIComponent(id)}/image`,
+      tags: c.tags ?? [],
+      raw: c,
+    };
+  });
+}
+
+async function refreshCaptures() {
+  const data = await listCaptures();
+  gallery.value = normalizeCaptures(data);
+}
+
+onMounted(async () => {
+  try {
+    await refreshCaptures();
+  } catch (e) {
+    console.error(e);
+  }
+});
+
+/** Thumbnail click => fullscreen preview */
+function openPreview(img) {
+  previewItem.value = img;
+  previewOpen.value = true;
+}
+function closePreview() {
+  previewOpen.value = false;
+  previewItem.value = null;
+}
+
+const detailsOpen = ref(false);
+const detailsItem = ref(null);
 
 function openDetails(img) {
-  selectedId.value = img.id;
-  modalItem.value = img;
-  modalNotes.value = img.notes || "";
-  modalAnnotations.value = [...(img.annotations || [])];
-  modalTags.value = [...(img.tags || [])];
-  modalOpen.value = true;
+  detailsItem.value = img;
+  detailsOpen.value = true;
 }
 
-function closeModal() {
-  modalOpen.value = false;
+function closeDetails() {
+  detailsOpen.value = false;
+  detailsItem.value = null;
 }
 
-function addModalAnnotation() {
-  if (!annoKey.value || !annoValue.value) return;
-  modalAnnotations.value.push({ key: annoKey.value, value: annoValue.value });
-  annoKey.value = annoValue.value = "";
+function displayResolution(img) {
+  const ann = img?.raw?.annotations || {};
+  if (ann.Size) return String(ann.Size);
+  if (ann.Resolution === "RAW") return "832x624";
+  if (ann.Resolution === "FULL") return "3280x2464";
+  return "Unknown";
 }
 
-function addModalTag() {
-  if (!tagInput.value) return;
-  modalTags.value.push(tagInput.value);
-  tagInput.value = "";
+/** Delete */
+function askDelete(img) {
+  confirmItem.value = img;
+  deleteError.value = "";
+  confirmOpen.value = true;
+}
+function closeConfirm() {
+  confirmOpen.value = false;
+  confirmItem.value = null;
 }
 
-function saveModal() {
-  Object.assign(modalItem.value, {
-    notes: modalNotes.value,
-    annotations: modalAnnotations.value,
-    tags: modalTags.value,
-  });
-  modalOpen.value = false;
+async function confirmDelete() {
+  if (!confirmItem.value) return;
+  deleting.value = true;
+  deleteError.value = "";
+  try {
+    await deleteCapture(confirmItem.value.id);
+
+    // remove locally
+    gallery.value = gallery.value.filter((x) => x.id !== confirmItem.value.id);
+
+    closeConfirm();
+  } catch (e) {
+    deleteError.value = String(e?.message || e);
+  } finally {
+    deleting.value = false;
+  }
 }
 
-function openAnalysisModal(img) {
+/** Analyze */
+async function runAnalysis(img) {
   analysisItem.value = img;
   analysisOpen.value = true;
+  analysisLoading.value = true;
+  analysisError.value = "";
+  analysisResult.value = null;
+
+  try {
+    const res = await analyzeCapture(img.id);
+    analysisResult.value = {
+      blobCount: res.blobCount ?? res.count ?? 0,
+      overlayImageUrl: res.overlayImageUrl ?? null,
+      maskImageUrl: res.maskImageUrl ?? null,
+    };
+  } catch (e) {
+    analysisError.value = String(e?.message || e);
+  } finally {
+    analysisLoading.value = false;
+  }
 }
 
 function closeAnalysisModal() {
   analysisOpen.value = false;
   analysisItem.value = null;
+  analysisResult.value = null;
+  analysisError.value = "";
+  analysisLoading.value = false;
 }
-
-function runAnalysis(img) {
-  // Demo-only: store results on the image object (replace with backend call later)
-  img.analysis = {
-    cellCount: img.analysis?.cellCount ?? 25,
-    ranAt: new Date().toISOString(),
-  };
-  console.log("ANALYZE", img.name, img.analysis);
-}
-
-function saveAnalysis() {
-  if (!analysisItem.value?.analysis) return;
-  console.log("SAVE ANALYSIS", analysisItem.value.id, analysisItem.value.analysis);
-  closeAnalysisModal();
-}
-
-function downloadOne(img) { console.log("DOWNLOAD", img.name); }
-function deleteOne(img) {
-  gallery.value = gallery.value.filter(x => x.id !== img.id);
-}
-function downloadAll() { console.log("DOWNLOAD ALL"); }
 </script>
+
 
 <style scoped>
 .galleryPage {
@@ -419,7 +516,7 @@ function downloadAll() { console.log("DOWNLOAD ALL"); }
   column-gap: 8px;
   row-gap: 6px;
   border-top: 1px solid #bdbdbd;
-  background: transparent;
+  background: #1f4b7a;
 }
 
 .filename {
@@ -427,6 +524,7 @@ function downloadAll() { console.log("DOWNLOAD ALL"); }
   grid-row: 1;
   font-size: 12px;
   font-weight: 700;
+  color: #fff;
 }
 
 .datetime {
@@ -458,7 +556,7 @@ function downloadAll() { console.log("DOWNLOAD ALL"); }
 
 .iconBtn .material-symbols-outlined {
   font-size: 18px;
-  color: #111;
+  color: #fff;
 }
 
 .card.selected .iconBtn .material-symbols-outlined {
@@ -498,19 +596,20 @@ function downloadAll() { console.log("DOWNLOAD ALL"); }
 }
 
 .modal {
-  width: 520px;
-  max-width: 90vw;
+  width: min(720px, 92vw);
+  min-height: 360px;
   background: #f6f6f6;
-  border-radius: 6px;
+  border-radius: 8px;
   border: 1px solid #cfcfcf;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
-  padding: 14px 16px;
-  font-size: 12px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+  padding: 24px 28px;
+  font-size: 14px;
+  color: #111;
 }
 
 .modalTitle {
   font-weight: 800;
-  font-size: 13px;
+  font-size: 16px;
   margin-bottom: 8px;
 }
 
@@ -542,7 +641,7 @@ function downloadAll() { console.log("DOWNLOAD ALL"); }
   border: 1px solid #bdbdbd;
   border-radius: 6px;
   padding: 8px 10px;
-  font-size: 12px;
+  font-size: 14px;
   background: #fff;
   outline: none;
   resize: vertical;
@@ -716,6 +815,67 @@ function downloadAll() { console.log("DOWNLOAD ALL"); }
 .saveBtn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+/* Fullscreen image preview (lightbox) */
+.imgBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 12000;
+}
+
+.imgModal {
+  position: relative;
+  width: min(1400px, 96vw);
+  height: min(900px, 94vh);
+  background: #111;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.15);
+  box-shadow: 0 18px 50px rgba(0,0,0,0.45);
+  display: flex;
+  flex-direction: column;
+}
+
+.imgClose {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.15);
+  color: white;
+  font-size: 22px;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.imgFull {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+.imgCaption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 10px 12px;
+  color: #fff;
+  background: linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0));
+  font-size: 12px;
+}
+
+.muted {
+  opacity: 0.8;
 }
 
 </style>
