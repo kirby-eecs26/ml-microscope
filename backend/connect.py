@@ -11,10 +11,16 @@ API_BASE = "http://microscope.local:5000/" #we can either put the last "/" here 
                                             # hte beginning of the extensions,
 
 def apiConnect(timeout = 2.0):
-    """plan: take in the microscope ip? for connection and connect to the API.
-    prints conformation if 200 returns raises; error if not"""
+    """
+    requests connection to the api with timeout limit, if times out -> raises error, checks
+    response status -> is error raises an error, catch all errors but do not connection
+    with connection
+    :param timeout:
+    :return:
+    """
     try:
         response = requests.get(f"{API_BASE}api/v2", timeout=timeout)
+        response.raise_for_status()
 
         if response.status_code == 200:
             print("200 connection :)")
@@ -32,11 +38,17 @@ def apiConnect(timeout = 2.0):
 
 
 def camConnect(timeout = 2.0):
-    """plan: take in the microscope ip? for connection and conforms camera functionality.
-    prints conformation if (success code) returns; raises error if not"""
+    """
+    requests api camera diagnostic check, 200 returned code == valid connection
+    if returned code or error raised in response status raise exception and catch
+    todo: add errors to log
+    :param timeout:
+    :return:
+    """
     try:
         response = requests.get(
             f"{API_BASE}api/v2/streams/mjpeg", timeout=timeout, stream=True)
+        response.raise_for_status()
 
         if response.status_code == 200: #change for correct camrea respons
             print("camera connection :)")
@@ -54,10 +66,13 @@ def camConnect(timeout = 2.0):
 
 
 def disconnect():
-    """plan: take in the microscope ip for connection and disconnect to the API.
-    prints conformation if (success code) returns; raises error if not"""
+    """
+    requests api to shut down/disconnect from the users app, if issue raised catch and add to log
+    :return:
+    """
     try:
         response = requests.get(f"{API_BASE}api/v2/actions/system/shutdown/", timeout=2.0)
+        response.raise_for_status()
 
         if response.status_code == 200:
             print("disconnected :)")
