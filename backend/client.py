@@ -60,8 +60,12 @@ class SaveCaptureRequest(BaseModel):
 @app.get("/health")
 @app.head("/health")
 def health():
+    return {"ok": True, "message": "Backend running"}
+
+@app.get("/microscope/health")
+def microscope_health():
     if server.apiHealth():
-        return {"ok": True, "message": "Microscope API reachable"}
+        return {"ok": True, "message": "Microscope reachable"}
     raise HTTPException(status_code=503, detail="Microscope API not reachable")
 
 
@@ -185,6 +189,24 @@ def analyze(req: AnalyzeRequest):
         "overlayImageUrl": None,  # later could be "/analysis/{id}/overlay.png"
         "maskImageUrl": None
     }
+
+@app.delete("/captures/{capture_id}/tags/{tag}")
+def delete_capture_tag(capture_id: str, tag: str):
+    url = f"http://microscope.local:5000/api/v2/captures/{capture_id}/tags"
+
+    # OpenFlexure expects the payload to be a JSON array, e.g. ["c"]
+    resp = requests.delete(url, json=[tag], timeout=10)
+
+    if resp.status_code >= 400:
+        raise HTTPException(
+            status_code=resp.status_code,
+            detail=f"Delete tag failed: {resp.text}",
+        )
+
+    try:
+        return resp.json()
+    except Exception:
+        return {"ok": True}
 
 
 # ---------------------------
