@@ -16,8 +16,9 @@
         </div>
       </div>
 
-      <button class="captureBtn" @click="capture">
-        CAPTURE
+      <button class="captureBtn" @click="capture" :disabled="busy">
+        <span v-if="busy && busyMode === 'capture'" class="spinner"></span>
+        {{ busy && busyMode === "capture" ? "CAPTURING..." : "CAPTURE" }}
       </button>
     </section>
 
@@ -98,14 +99,28 @@
 
             <!-- Save to Gallery -->
             <div class="modalFooterLeft">
-              <button class="saveBtn" @click="saveToGallery">SAVE TO GALLERY</button>
+              <button class="saveBtn" @click="saveToGallery" :disabled="busy || !capturedImageId">
+                <span v-if="busy && busyMode === 'save'" class="spinner"></span>
+                {{ busy && busyMode === "save" ? "SAVING..." : "SAVE TO GALLERY" }}
+              </button>
             </div>
           </div>
 
           <div class="modalRight">
             <div class="modalPreviewFrame">
-              <!-- Image Placeholder -->
-               <img class="modalPreviewImg" :src="previewUrl || '/cell.jpg'" alt="Captured preview" />
+              <div v-if="busy && busyMode === 'capture'" class="modalLoading">
+                <div class="spinner big"></div>
+                <div class="loadingText">
+                  Capturing {{ resolution === "RAW" ? "RAW" : "FULL" }} image…
+                </div>
+              </div>
+
+              <img
+                v-else
+                class="modalPreviewImg"
+                :src="previewUrl || '/cell.jpg'"
+                alt="Captured preview"
+              />
             </div>
           </div>
         </div>
@@ -127,6 +142,7 @@ const router = useRouter();
 const resolution = ref("FULL");
 const status = ref("");
 const busy = ref(false);
+const busyMode = ref(""); // "", "capture", "save", "delete"
 
 // Image Capture reference
 const capturedImageId = ref(null);
@@ -146,8 +162,13 @@ const previewUrl = ref("");
 const lastCaptureIsRaw = ref(false);
 
 async function capture() {
+  imageModalOpen.value = true;
+  previewUrl.value = "";
+  capturedImageId.value = null;
+
   try {
     busy.value = true;
+    busyMode.value = "capture";
     status.value = "Capturing image...";
 
     const isRaw = resolution.value === "RAW";
@@ -168,22 +189,20 @@ async function capture() {
     };
 
     const result = await captureImage(payload);
-    console.log("CAPTURE RESULT:", result);
 
     const cap = result.capture;
     capturedImageId.value = cap?.id ?? cap?.saved_as ?? cap?.filename ?? "";
     const base = import.meta.env.VITE_API_BASE || "";
     previewUrl.value = `${base}/captures/${encodeURIComponent(capturedImageId.value)}/image`;
-    console.log("PREVIEW URL:", previewUrl.value);
     lastCaptureIsRaw.value = isRaw;
 
     status.value = `Captured: ${capturedImageId.value}`;
-    imageModalOpen.value = true;
   } catch (err) {
     console.error(err);
     status.value = `Error: ${err.message}`;
   } finally {
     busy.value = false;
+    busyMode.value = "";
   }
 }
 
@@ -200,17 +219,18 @@ function openCaptureModal() {
   imageModalOpen.value = true;
 }
 
-async function closeCaptureModal() {
-  if (capturedImageId.value) {
-    try {
-      await deleteCapture(capturedImageId.value);
-    } catch (e) {
-      console.warn("Failed to delete temp capture:", e);
-    }
-  }
+function closeCaptureModal() {
+  const id = capturedImageId.value;
   imageModalOpen.value = false;
   capturedImageId.value = null;
   previewUrl.value = "";
+  if (id) {
+    busyMode.value = "delete";
+    deleteCapture(id).catch((e) => console.warn("Failed to delete temp capture:", e))
+      .finally(() => {
+        if (busyMode.value === "delete") busyMode.value = "";
+      });
+  }
 }
 
 function addAnnotation() {
@@ -249,20 +269,21 @@ function buildCapturePayload({ temporary }) {
 async function saveToGallery() {
   try {
     busy.value = true;
-
+    status.value = "Saving to gallery...";
     const payload = buildCapturePayload({ temporary: false });
-    const res = await captureImage(payload);
-    const saved = res.capture;
-
-    if (capturedImageId.value) {
-      try { await deleteCapture(capturedImageId.value); } catch (e) { console.warn(e); }
-    }
-
+    await captureImage(payload);
+    const tempId = capturedImageId.value;
     imageModalOpen.value = false;
+    router.push("/gallery");
+
     capturedImageId.value = null;
     previewUrl.value = "";
 
-    router.push("/gallery");
+    if (tempId) {
+      deleteCapture(tempId).catch((e) =>
+        console.warn("Failed to delete temp capture:", e)
+      );
+    }
   } catch (e) {
     console.error(e);
     status.value = `Save failed: ${e.message}`;
@@ -270,6 +291,8 @@ async function saveToGallery() {
     busy.value = false;
   }
 }
+
+
 
 
 </script>
@@ -700,6 +723,50 @@ async function saveToGallery() {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.captureBtn:disabled,
+.saveBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.6);
+  border-top-color: rgba(255,255,255,1);
+  border-radius: 999px;
+  animation: spin 0.8s linear infinite;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.spinner.big {
+  width: 26px;
+  height: 26px;
+  border-width: 3px;
+  margin-right: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.modalLoading {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  color: #fff;
+}
+
+.loadingText {
+  font-size: 14px;
+  font-weight: 700;
+  opacity: 0.9;
 }
 
 </style>

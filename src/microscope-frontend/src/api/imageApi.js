@@ -77,3 +77,24 @@ export async function updateCaptureMetadata(captureId, payload) {
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
+
+export async function getLiveInfo() {
+  const r = await fetch(`${BASE_URL}/live`);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function microscopeHealth() {
+  const r = await fetch(`${BASE_URL}/microscope/health`);
+  return r.ok;
+}
+
+export async function deleteTag(captureId, tag) {
+  const base = import.meta.env.VITE_API_BASE || "";
+  const r = await fetch(
+    `${base}/captures/${encodeURIComponent(captureId)}/tags/${encodeURIComponent(tag)}`,
+    { method: "DELETE" }
+  );
+  if (!r.ok) throw new Error(await r.text());
+  return r.json().catch(() => ({}));
+}

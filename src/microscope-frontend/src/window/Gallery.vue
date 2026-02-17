@@ -55,6 +55,20 @@
             <button class="analyzeBtn" @click.stop="runAnalysis(img)">
               ANALYZE
             </button>
+            <!-- Tags row (visible on card) -->
+            <div class="cardTags" :class="{ empty: displayTags(img).length === 0 }">
+              <template v-if="displayTags(img).length">
+                <span
+                  v-for="t in displayTags(img)"
+                  :key="t"
+                  class="tagChip"
+                  :title="`Remove tag '${t}'`"
+                  @click.stop="askRemoveTag(img, t)"
+                >
+                  {{ t }}
+                </span>
+              </template>
+            </div>
           </div>
         </div>
       </div>
@@ -188,13 +202,26 @@
         <div class="divider"></div>
 
         <div class="section">
-          <div class="label">Tags</div>
-          <div class="chips" v-if="(detailsItem?.tags || []).length">
-            <div class="chip" v-for="(t, i) in detailsItem.tags" :key="i">
-              {{ t }}
+          <div class="label">Notes</div>
+          <div v-if="getNotes(detailsItem)" class="detailText">
+            {{ getNotes(detailsItem) }}
+          </div>
+          <div v-else class="muted">No notes</div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="section">
+          <div class="label">Annotations</div>
+
+          <div v-if="getAnnotationPairs(detailsItem).length" class="annoList">
+            <div class="annoRowRead" v-for="a in getAnnotationPairs(detailsItem)" :key="a.key">
+              <div class="annoKey">{{ a.key }}</div>
+              <div class="annoVal">{{ a.value }}</div>
             </div>
           </div>
-          <div v-else class="muted">No tags</div>
+
+          <div v-else class="muted">No annotations</div>
         </div>
 
         <div class="modalFooter">
@@ -203,11 +230,27 @@
       </div>
     </div>
 
+    <!-- Remove Tag Modal -->
+    <div v-if="removeTagOpen" class="backdrop" @click.self="closeRemoveTag">
+      <div class="miniModal" @click.stop>
+        <div class="miniTitle">Remove tag "{{ removeTagValue }}"?</div>
+
+        <div class="miniActions">
+          <button class="miniBtn ghost" @click="closeRemoveTag" :disabled="removeTagBusy">No</button>
+          <button class="miniBtn danger" @click="confirmRemoveTag" :disabled="removeTagBusy">
+            {{ removeTagBusy ? "Removing..." : "Yes" }}
+          </button>
+        </div>
+
+        <div v-if="removeTagError" class="miniError">{{ removeTagError }}</div>
+      </div>
+    </div>
+
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from "vue";
-import { listCaptures, deleteCapture, analyzeCapture } from "../api/imageApi";
+import { listCaptures, deleteCapture, analyzeCapture, deleteTag } from "../api/imageApi";
 
 const gallery = ref([]); // will be loaded from backend
 const query = ref("");
@@ -228,6 +271,13 @@ const analysisItem = ref(null);
 const analysisLoading = ref(false);
 const analysisError = ref("");
 const analysisResult = ref(null); // { blobCount, overlayImageUrl, maskImageUrl }
+
+/** Remove tag */
+const removeTagOpen = ref(false);
+const removeTagBusy = ref(false);
+const removeTagError = ref("");
+const removeTagItem = ref(null);
+const removeTagValue = ref("");
 
 const filtered = computed(() => {
   const q = query.value?.trim().toLowerCase();
@@ -266,6 +316,58 @@ async function refreshCaptures() {
   gallery.value = normalizeCaptures(data);
 }
 
+function getNotes(img) {
+  const ann = img?.raw?.annotations || {};
+  const notes = ann?.Notes;
+  return notes ? String(notes) : "";
+}
+
+function getAnnotationPairs(img) {
+  const ann = img?.raw?.annotations || {};
+  return Object.entries(ann)
+    .filter(([k]) => k && k !== "Notes") // Notes displayed separately
+    .map(([k, v]) => ({ key: String(k), value: String(v ?? "") }));
+}
+
+function askRemoveTag(img, tag) {
+  removeTagItem.value = img;
+  removeTagValue.value = tag;
+  removeTagError.value = "";
+  removeTagOpen.value = true;
+}
+
+function closeRemoveTag() {
+  if (removeTagBusy.value) return;
+  removeTagOpen.value = false;
+  removeTagItem.value = null;
+  removeTagValue.value = "";
+  removeTagError.value = "";
+}
+
+async function confirmRemoveTag() {
+  if (!removeTagItem.value || !removeTagValue.value) return;
+
+  removeTagBusy.value = true;
+  removeTagError.value = "";
+
+  try {
+    await deleteTag(removeTagItem.value.id, removeTagValue.value);
+
+    const id = removeTagItem.value.id;
+    const tag = removeTagValue.value;
+    const target = gallery.value.find((x) => x.id === id);
+    if (target) {
+      target.tags = (target.tags || []).filter((t) => String(t) !== String(tag));
+    }
+
+    closeRemoveTag();
+  } catch (e) {
+    removeTagError.value = String(e?.message || e);
+  } finally {
+    removeTagBusy.value = false;
+  }
+}
+
 onMounted(async () => {
   try {
     await refreshCaptures();
@@ -288,6 +390,8 @@ const detailsOpen = ref(false);
 const detailsItem = ref(null);
 
 function openDetails(img) {
+  console.log("DETAILS ITEM RAW:", img.raw);
+  console.log("DETAILS TAGS FIELD:", img.tags);
   detailsItem.value = img;
   detailsOpen.value = true;
 }
@@ -303,6 +407,11 @@ function displayResolution(img) {
   if (ann.Resolution === "RAW") return "832x624";
   if (ann.Resolution === "FULL") return "3280x2464";
   return "Unknown";
+}
+
+function displayTags(cap) {
+  const tags = Array.isArray(cap?.tags) ? cap.tags : [];
+  return tags.map(t => String(t).trim()).filter(t => t && t !== "temporary");
 }
 
 /** Delete */
@@ -420,6 +529,32 @@ function closeAnalysisModal() {
   pointer-events: none;
 }
 
+.cardTags {
+  grid-column: 1 / -1;
+  grid-row: 4;
+
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 26px;
+  padding-top: 2px;
+}
+
+.tagChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.92);
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Download button (dark blue rounded) */
 .downloadAll {
   justify-self: end;
@@ -459,9 +594,11 @@ function closeAnalysisModal() {
 }
 
 .card {
-  background: #efefef;
   border: 1px solid #bdbdbd;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  background: #1f4b7a;
 }
 
 .card.selected {
@@ -512,7 +649,7 @@ function closeAnalysisModal() {
   padding: 10px 10px 12px;
   display: grid;
   grid-template-columns: 1fr auto;
-  grid-template-rows: auto auto auto;
+  grid-template-rows: auto auto auto auto;
   column-gap: 8px;
   row-gap: 6px;
   border-top: 1px solid #bdbdbd;
@@ -817,6 +954,40 @@ function closeAnalysisModal() {
   cursor: not-allowed;
 }
 
+.detailText {
+  white-space: pre-wrap;
+  font-size: 12px;
+  color: #111;
+}
+
+.annoList {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.annoRowRead {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid #d8d8d8;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.annoKey {
+  font-weight: 800;
+  color: #111;
+  font-size: 12px;
+}
+
+.annoVal {
+  color: #333;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
 /* Fullscreen image preview (lightbox) */
 .imgBackdrop {
   position: fixed;
@@ -876,6 +1047,60 @@ function closeAnalysisModal() {
 
 .muted {
   opacity: 0.8;
+}
+
+.miniModal {
+  width: min(380px, 92vw);
+  background: #f6f6f6;
+  border: 1px solid #cfcfcf;
+  border-radius: 10px;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.35);
+  padding: 16px 18px;
+}
+
+.miniTitle {
+  font-size: 14px;
+  font-weight: 800;
+  color: #111;
+}
+
+.miniActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.miniBtn {
+  height: 32px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  border: none;
+}
+
+.miniBtn.ghost {
+  background: transparent;
+  border: 1px solid #bdbdbd;
+  color: #333;
+}
+
+.miniBtn.danger {
+  background: #1f4b7a;
+  color: #fff;
+}
+
+.miniBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.miniError {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #b00020;
 }
 
 </style>
