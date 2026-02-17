@@ -1,0 +1,58 @@
+{
+  "name": "cellular-imaging-studio",
+  "productName": "Cellular Imaging Studio",
+  "version": "1.0.0",
+  "description": "OpenFlexure AI Microscope Desktop Application",
+  "main": "main.js",
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+
+  "scripts": {
+    "dev": "electron .",
+    "dist": "electron-builder"
+  },
+
+  "dependencies": {
+    "wait-on": "^9.0.4"
+  },
+
+  "devDependencies": {
+    "electron": "^40.4.1",
+    "electron-builder": "^26.7.0"
+  },
+
+  "build": {
+    "appId": "com.uci.cellularimagingstudio",
+    "productName": "Cellular Imaging Studio",
+
+    "directories": {
+      "output": "release-build"
+    },
+
+    "files": [
+      "**/*"
+    ],
+
+    "extraResources": [
+      {
+        "from": "../dist/MicroscopeBackend",
+        "to": "backend"
+      }
+    ],
+
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": false
+    },
+
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "OpenFlexure AI Microscope"
+    }
+  }
+}

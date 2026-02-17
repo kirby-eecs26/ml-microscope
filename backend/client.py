@@ -10,7 +10,9 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import server
+from backend import server
+import sys
+import uvicorn
 
 app = FastAPI(title="ML Microscope Backend")
 
@@ -56,6 +58,7 @@ class SaveCaptureRequest(BaseModel):
 # API routes
 # -----------------------
 @app.get("/health")
+@app.head("/health")
 def health():
     if server.apiHealth():
         return {"ok": True, "message": "Microscope API reachable"}
@@ -187,7 +190,22 @@ def analyze(req: AnalyzeRequest):
 # ---------------------------
 # Serve built Vue app (dist/)
 # ---------------------------
-FRONTEND_DIST = Path(__file__).resolve().parents[1] / "src" / "microscope-frontend" / "dist"
+
+def get_frontend_dist() -> Path:
+    """
+    Works in dev (repo) and when frozen (PyInstaller).
+    We'll copy Vue dist into: <exe_dir>/frontend_dist
+    """
+    if getattr(sys, "frozen", False):
+        # running as exe
+        exe_dir = Path(sys.executable).resolve().parent
+        return exe_dir / "frontend_dist"
+    else:
+        # running from source
+        return Path(__file__).resolve().parents[1] / "src" / "microscope-frontend" / "dist"
+
+
+FRONTEND_DIST = get_frontend_dist()
 ASSETS_DIR = FRONTEND_DIST / "assets"
 
 if FRONTEND_DIST.exists():
@@ -196,8 +214,13 @@ if FRONTEND_DIST.exists():
 
     @app.get("/{full_path:path}")
     def serve_spa(full_path: str):
-        if full_path.startswith(("health", "move", "position", "center", "captures", "capture", "live")):
+        if full_path.startswith(("health", "move", "position", "center", "captures", "capture", "live", "analyze")):
             raise HTTPException(status_code=404, detail="Not found")
         return FileResponse(str(FRONTEND_DIST / "index.html"))
 else:
-    print("[INFO] Vue dist not found. (This is normal in dev when running Vite.)")
+    print("[INFO] Vue dist not found:", FRONTEND_DIST)
+
+
+if __name__ == "__main__":
+    # run the API when exe is launched
+    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="info")
