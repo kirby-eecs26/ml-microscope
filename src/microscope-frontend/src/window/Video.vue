@@ -117,7 +117,7 @@
               </div>
             </div>
 
-            <!-- Analyze -->
+            <!-- Analyze 
             <div class="modalField">
               <div class="modalLabel">Analyze</div>
               <button class="countBtn" @click="countCells" :disabled="busy || !recordedVideoId">
@@ -125,7 +125,7 @@
                 {{ busy && busyMode === "count" ? "COUNTING..." : "COUNT CELLS" }}
               </button>
               <div v-if="cellCount !== null" class="countResult">Cell Count: {{ cellCount }}</div>
-            </div>
+            </div> -->
 
             <!-- Save -->
             <div class="modalFooterLeft">
@@ -179,7 +179,7 @@ const modalTags = ref([]);
 const annoKey = ref("");
 const annoValue = ref("");
 const tagInput = ref("");
-const cellCount = ref(null);
+//const cellCount = ref(null);
 
 function setPreset(n) {
   frameRate.value = n;
@@ -296,7 +296,7 @@ function buildMetadataPayload() {
   };
 }
 
-async function countCells() {
+/*async function countCells() {
   try {
     busy.value = true;
     busyMode.value = "count";
@@ -315,7 +315,7 @@ async function countCells() {
     busy.value = false;
     busyMode.value = "";
   }
-}
+}*/
 
 async function saveToGallery() {
   try {
