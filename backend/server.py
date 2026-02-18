@@ -208,6 +208,7 @@ def captureVideo(fpm: int, payload: dict, duration: float = MAX_DURATION_SEC) ->
 def delete_capture(capture_id: str) -> bool:
     url = f"{API_BASE}api/v2/captures/{capture_id}"
     r = requests.delete(url, timeout=10)
+
     if r.status_code in (200, 204):
         return True
     raise RuntimeError(f"Delete failed: {r.status_code} {r.text}")
