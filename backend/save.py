@@ -19,34 +19,34 @@ def get_download_path() -> Path | None:
     except FileNotFoundError as e:
         print(f"{e.__str__()}: Downloads folder not found")
 
-def download_analysis(file_name: str, file_data: Path):
-    """
-    takes in a name for the new download file and a path to the local analysis csv file and copies
-    data (saves) file data to users home download folder
-    :param file_name:
-    :param file_data:
-    :return:
-    """
-    try:
-        downloads_folder = get_download_path()
-        new_file = downloads_folder / f"{file_name}.csv"
-
-        with file_data.open("r", encoding = "utf-8") as src:
-            text = src.read()
-
-        with new_file.open("w", encoding = "utf-8") as dst:
-            dst.write(text)
-
-    except Exception as e:
-        print("file failed to download")
-
-    finally:
-        file_data.close()
-        new_file.close()
+# def download_analysis(file_name: str, file_data: Path):
+#     """
+#     takes in a name for the new download file and a path to the local analysis csv file and copies
+#     data (saves) file data to users home download folder
+#     :param file_name:
+#     :param file_data:
+#     :return:
+#     """
+#     try:
+#         downloads_folder = get_download_path()
+#         new_file = downloads_folder / f"{file_name}.csv"
+#
+#         with file_data.open("r", encoding = "utf-8") as src:
+#             text = src.read()
+#
+#         with new_file.open("w", encoding = "utf-8") as dst:
+#             dst.write(text)
+#
+#     except Exception as e:
+#         print("file failed to download")
+#
+#     finally:
+#         file_data.close()
+#         new_file.close()
 
 def download_image(capture_id):
     """
-    takes the catpure id and gets images from the local pi then copies (saves) the image data
+    takes the capture id and gets images from the local pi then copies (saves) the image data
     to the users home downloads file
     catch exceptions and add them to logging
     todo: add exceptions to logging
@@ -90,3 +90,7 @@ def get_capture(capture_id, timeout=2.0):
 
     except requests.RequestException as e:
         print("Capture request failed: Could not download image")
+
+
+def delete_photo():
+    return 1
