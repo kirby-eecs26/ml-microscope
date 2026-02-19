@@ -91,11 +91,11 @@
               </div>
             </div>
 
-            <!-- Count Cells -->
+            <!-- Count Cells 
             <div class="modalField">
               <div class="modalLabel">Analyze</div>
               <button class="countBtn">COUNT CELLS</button>
-            </div>
+            </div> -->
 
             <!-- Save to Gallery -->
             <div class="modalFooterLeft">
@@ -663,7 +663,7 @@ async function saveToGallery() {
   color: #666;
 }
 
-.countBtn {
+/*.countBtn {
   height: 30px;
   border: none;
   border-radius: 6px;
@@ -671,10 +671,10 @@ async function saveToGallery() {
   color: #fff;
   font-weight: 900;
   font-size: 12px;
-  cursor: default;  /* inert – no pointer */
+  cursor: default;   inert – no pointer 
   width: 160px;
   opacity: 0.8;
-}
+}*/
 
 .modalFooterLeft {
   margin-top: auto;

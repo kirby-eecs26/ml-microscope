@@ -27,13 +27,22 @@
 
       <div class="spacer"></div>
 
-      <button v-if="!recording" class="primaryBtn" @click="startRecording">START VIDEO</button>
-      <button v-else class="primaryBtn" @click="stopRecording">STOP VIDEO</button>
+      <button v-if="!recording" class="primaryBtn" @click="startRecording" :disabled="busy">
+        <span v-if="busy && busyMode === 'start'" class="spinner"></span>
+        {{ busy && busyMode === "start" ? "STARTING..." : "START VIDEO" }}
+      </button>
+
+      <button v-else class="primaryBtn" @click="stopRecording" :disabled="busy">
+        <span v-if="busy && busyMode === 'stop'" class="spinner"></span>
+        {{ busy && busyMode === "stop" ? "STOPPING..." : "STOP VIDEO" }}
+      </button>
+
+      <div class="statusTextSmall" v-if="status">{{ status }}</div>
     </section>
 
-    <!-- CENTER preview -->
+    <!-- CENTER live preview  -->
     <section class="preview">
-      <img class="previewImg" src="/cell.jpg" alt="Microscope preview" />
+      <CameraPreview />
     </section>
 
     <!-- RIGHT status -->
@@ -55,16 +64,19 @@
         <div class="videoModalBody">
           <!-- Left pane in modal -->
           <div class="modalLeft">
+            <!-- Filename -->
             <div class="modalField">
               <div class="modalLabel">Filename</div>
               <input class="textInput" v-model="modalFilename" placeholder="filename" />
             </div>
 
+            <!-- Notes -->
             <div class="modalField">
               <div class="modalLabel">Notes</div>
               <textarea class="textArea" v-model="modalNotes" placeholder="Notes"></textarea>
             </div>
 
+            <!-- Annotations -->
             <div class="modalField">
               <div class="modalLabel">Annotations</div>
               <div class="annoRow">
@@ -85,6 +97,7 @@
               </div>
             </div>
 
+            <!-- Tags -->
             <div class="modalField">
               <div class="modalLabel">Tags</div>
               <div class="tagRow">
@@ -104,21 +117,30 @@
               </div>
             </div>
 
+            <!-- Analyze 
             <div class="modalField">
               <div class="modalLabel">Analyze</div>
-              <button class="countBtn" @click="countCells">COUNT CELLS</button>
+              <button class="countBtn" @click="countCells" :disabled="busy || !recordedVideoId">
+                <span v-if="busy && busyMode === 'count'" class="spinner"></span>
+                {{ busy && busyMode === "count" ? "COUNTING..." : "COUNT CELLS" }}
+              </button>
               <div v-if="cellCount !== null" class="countResult">Cell Count: {{ cellCount }}</div>
-            </div>
+            </div> -->
 
+            <!-- Save -->
             <div class="modalFooterLeft">
-              <button class="saveBtn" @click="saveToGallery">SAVE TO GALLERY</button>
+              <button class="saveBtn" @click="saveToGallery" :disabled="busy || !recordedVideoId">
+                <span v-if="busy && busyMode === 'save'" class="spinner"></span>
+                {{ busy && busyMode === "save" ? "SAVING..." : "SAVE TO GALLERY" }}
+              </button>
             </div>
           </div>
 
-          <!-- Right preview in modal -->
+          <!-- Right preview in modal (live view OR preview frame if backend provides) -->
           <div class="modalRight">
             <div class="modalPreviewFrame">
-              <img class="modalPreviewImg" src="/cell.jpg" alt="Video preview" />
+              <img v-if="stopPreviewUrl" class="modalPreviewImg" :src="stopPreviewUrl" alt="Video frame preview" />
+              <CameraPreview v-else />
             </div>
           </div>
         </div>
@@ -129,17 +151,27 @@
 
 <script setup>
 import { ref } from "vue";
+import CameraPreview from "../components/CameraPreview.vue";
+import { startVideo, stopVideo, analyzeVideo, saveVideoToGallery } from "../api/videoApi";
 
 const connected = ref(true);
 
 const resolution = ref("FULL"); // FULL | RAW
-const frameRate = ref(60);      // FPM (demo)
+const frameRate = ref(60);      // Frames-per-Minute (demo)
 const customRate = ref(null);
 
 const recording = ref(false);
+const busy = ref(false);
+const busyMode = ref(""); // "start" | "stop" | "count" | "save"
+const status = ref("");
+
+const recordingId = ref(null);     // id returned by startVideo
+const recordedVideoId = ref(null); // id returned by stopVideo (final artifact)
 
 // STOP modal
 const stopModalOpen = ref(false);
+const stopPreviewUrl = ref(""); // optional preview image from backend
+
 const modalFilename = ref("filename");
 const modalNotes = ref("");
 const modalAnnotations = ref([]);
@@ -147,7 +179,7 @@ const modalTags = ref([]);
 const annoKey = ref("");
 const annoValue = ref("");
 const tagInput = ref("");
-const cellCount = ref(null);
+//const cellCount = ref(null);
 
 function setPreset(n) {
   frameRate.value = n;
@@ -160,15 +192,67 @@ function setCustom() {
   frameRate.value = n;
 }
 
-function startRecording() {
-  recording.value = true;
-  console.log("START RECORDING", { resolution: resolution.value, frameRate: frameRate.value });
+async function startRecording() {
+  try {
+    busy.value = true;
+    busyMode.value = "start";
+    status.value = "Starting recording...";
+
+    const isRaw = resolution.value === "RAW";
+    const payload = {
+      resolution: resolution.value,
+      frames_per_minute: frameRate.value,
+      use_video_port: isRaw,
+      bayer: isRaw,
+    };
+
+    const result = await startVideo(payload);
+
+    // accept either { id } or { recording: { id } }
+    recordingId.value = result?.id ?? result?.recording?.id ?? null;
+    recording.value = true;
+    status.value = "Recording...";
+  } catch (e) {
+    console.error(e);
+    status.value = `Start failed: ${e?.message ?? e}`;
+  } finally {
+    busy.value = false;
+    busyMode.value = "";
+  }
 }
 
-function stopRecording() {
-  recording.value = false;
-  console.log("STOP RECORDING");
-  openStopModal();
+async function stopRecording() {
+  try {
+    busy.value = true;
+    busyMode.value = "stop";
+    status.value = "Stopping recording...";
+
+    const result = await stopVideo({ recording_id: recordingId.value });
+
+    // accept either { video: { id } } or { id }
+    recordedVideoId.value = result?.video?.id ?? result?.id ?? recordingId.value;
+    recordingId.value = null;
+    recording.value = false;
+
+    // optional preview image endpoint from backend
+    const preview = result?.preview_url;
+    if (preview) {
+      stopPreviewUrl.value = preview;
+    } else {
+      const base = import.meta.env.VITE_API_BASE || "";
+      // if backend exposes a still frame for the recorded video
+      stopPreviewUrl.value = recordedVideoId.value ? `${base}/videos/${encodeURIComponent(recordedVideoId.value)}/preview` : "";
+    }
+
+    openStopModal();
+    status.value = "Stopped.";
+  } catch (e) {
+    console.error(e);
+    status.value = `Stop failed: ${e?.message ?? e}`;
+  } finally {
+    busy.value = false;
+    busyMode.value = "";
+  }
 }
 
 function openStopModal() {
@@ -178,6 +262,7 @@ function openStopModal() {
 
 function closeStopModal() {
   stopModalOpen.value = false;
+  stopPreviewUrl.value = "";
 }
 
 function addAnnotation() {
@@ -194,23 +279,67 @@ function addTag() {
   tagInput.value = "";
 }
 
-function countCells() {
-  // demo placeholder
-  cellCount.value = 25;
+function buildMetadataPayload() {
+  const annotationsDict = {};
+  for (const a of modalAnnotations.value) {
+    if (a?.key?.trim()) annotationsDict[a.key.trim()] = String(a.value ?? "");
+  }
+  if (modalNotes.value?.trim()) annotationsDict["Notes"] = modalNotes.value.trim();
+
+  return {
+    filename: modalFilename.value?.trim() || "video",
+    notes: modalNotes.value,
+    annotations: annotationsDict,
+    tags: modalTags.value.map(t => t.trim()).filter(Boolean),
+    resolution: resolution.value,
+    frames_per_minute: frameRate.value,
+  };
 }
 
-function saveToGallery() {
-  const payload = {
-    filename: modalFilename.value.trim(),
-    notes: modalNotes.value,
-    annotations: modalAnnotations.value,
-    tags: modalTags.value,
-    analysis: cellCount.value === null ? null : { cellCount: cellCount.value },
-    resolution: resolution.value,
-    frameRate: frameRate.value,
-  };
-  console.log("SAVE TO GALLERY:", payload);
-  closeStopModal();
+/*async function countCells() {
+  try {
+    busy.value = true;
+    busyMode.value = "count";
+    status.value = "Running analysis...";
+
+    const id = recordedVideoId.value;
+    const result = await analyzeVideo(id, { type: "count_cells" });
+
+    // accept either { cell_count } or { analysis: { cell_count } }
+    cellCount.value = result?.cell_count ?? result?.analysis?.cell_count ?? result?.count ?? 0;
+    status.value = "Analysis complete.";
+  } catch (e) {
+    console.error(e);
+    status.value = `Analysis failed: ${e?.message ?? e}`;
+  } finally {
+    busy.value = false;
+    busyMode.value = "";
+  }
+}*/
+
+async function saveToGallery() {
+  try {
+    busy.value = true;
+    busyMode.value = "save";
+    status.value = "Saving to gallery...";
+
+    const id = recordedVideoId.value;
+    const payload = buildMetadataPayload();
+
+    // include analysis result if present
+    if (cellCount.value !== null) payload.analysis = { cell_count: cellCount.value };
+
+    await saveVideoToGallery(id, payload);
+
+    stopModalOpen.value = false;
+    status.value = "Saved.";
+  } catch (e) {
+    console.error(e);
+    status.value = `Save failed: ${e?.message ?? e}`;
+  } finally {
+    busy.value = false;
+    busyMode.value = "";
+  }
 }
 </script>
 
@@ -312,6 +441,11 @@ function saveToGallery() {
 
 .primaryBtn:hover, .setBtn:hover { filter: brightness(0.95); }
 
+.statusTextSmall {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
 /* CENTER preview */
 .preview {
   background: var(--content-bg);
@@ -319,12 +453,6 @@ function saveToGallery() {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-}
-
-.previewImg {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 /* RIGHT status */
@@ -349,7 +477,7 @@ function saveToGallery() {
 .dot { width: 8px; height: 8px; border-radius: 999px; background: #9a9a9a; }
 .dot.on { background: #2ecc71; }
 
-/* MODAL */
+/* Modal */
 .backdrop {
   position: fixed;
   inset: 0;
@@ -539,7 +667,25 @@ function saveToGallery() {
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 .modalPreviewImg { width: 100%; height: 100%; object-fit: cover; }
+
+/* spinner for busy buttons */
+.spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: rgba(255,255,255,1);
+  border-radius: 999px;
+  margin-right: 8px;
+  vertical-align: -2px;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 </style>
