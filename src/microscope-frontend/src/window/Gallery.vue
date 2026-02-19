@@ -336,8 +336,8 @@ function askRemoveTag(img, tag) {
   removeTagOpen.value = true;
 }
 
-function closeRemoveTag() {
-  if (removeTagBusy.value) return;
+function closeRemoveTag(force = false) {
+  if (removeTagBusy.value && !force) return;
   removeTagOpen.value = false;
   removeTagItem.value = null;
   removeTagValue.value = "";
@@ -360,7 +360,7 @@ async function confirmRemoveTag() {
       target.tags = (target.tags || []).filter((t) => String(t) !== String(tag));
     }
 
-    closeRemoveTag();
+  closeRemoveTag(true);
   } catch (e) {
     removeTagError.value = String(e?.message || e);
   } finally {
@@ -400,6 +400,39 @@ function closeDetails() {
   detailsOpen.value = false;
   detailsItem.value = null;
 }
+
+async function downloadOne(img) {
+  try {
+    const base = import.meta.env.VITE_API_BASE || "";
+    const url = `${base}/captures/${encodeURIComponent(img.id)}/image`;
+
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Download failed: ${res.status} ${res.statusText}`);
+
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+
+    const rawName = (img.name || `capture_${img.id}`).trim();
+    const safeName = rawName.replace(/[^\w.-]+/g, "_");
+
+    const lower = safeName.toLowerCase();
+    const filename = (lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png"))
+      ? safeName
+      : `${safeName}.jpeg`;
+
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    URL.revokeObjectURL(objectUrl);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
 
 function displayResolution(img) {
   const ann = img?.raw?.annotations || {};

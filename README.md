@@ -4,14 +4,16 @@
 
 Microscope system that captures cell images and uses AI/ML image analysis to automate the task of cell counting for biologists, based on OpenFlexure framework.
 
-## Overview
-
 - Based on [OpenFlexure High-Resolution Motorized Microscope](https://build.openflexure.org/openflexure-microscope/v7.0.0-beta4/#high-resolution-motorised-microscope).
 - Captures images and video from sample slides.
 - Uses automated focusing and stage motion for optimal image qualtiy.
 - Calculates cell count with AI/ML model.
 - Cell count available on screen or as CSV output.
 - Time lapse feature records change in cell count periodically over a defined duration.
+
+## System Architecture
+
+*TO BE DONE.*
 
 ## Repository Structure
 
@@ -61,13 +63,13 @@ ml-microscope/
 └── README.md
 ```
 
-## Quick Start Instructions
+## Setup and Installation
 
-*TBD (Quick proof of concept.)*
+*TO BE DONE.*
 
-## Deployment Instructions
+## Application Instructions
 
-*TBD (Full production-grade installation.)*
+*Link to User Manual.*
 
 ## Submodule Policy
 
@@ -78,3 +80,7 @@ We pin upstream submodules to stable tags and only update for critical security 
 - [OpenFlexure Connect - UI App](https://gitlab.com/openflexure/openflexure-connect.git)
 - [OpenFlexure Microscope - Hardware](https://gitlab.com/openflexure/openflexure-microscope.git)
 - [OpenFlexure Microscope - Server](https://gitlab.com/openflexure/openflexure-microscope-server.git)
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
