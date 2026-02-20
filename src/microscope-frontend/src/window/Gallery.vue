@@ -9,8 +9,8 @@
         <span class="material-symbols-outlined searchIcon">search</span>
       </div>
 
-      <button class="downloadAll" @click="downloadAll">
-        Download
+      <button class="downloadAll" @click="downloadAll" :disabled="zipBusy">
+        {{ zipBusy ? "Creating..." : (zipReady ? "Download Zip" : "Create Zip") }}
       </button>
     </header>
 
@@ -47,7 +47,7 @@
                 <span class="material-symbols-outlined">download</span>
               </button>
 
-              <button class="iconBtn" @click.stop="deleteOne(img)">
+              <button class="iconBtn" @click.stop="askDelete(img)">
                 <span class="material-symbols-outlined">delete</span>
               </button>
             </div>
@@ -246,6 +246,24 @@
       </div>
     </div>
 
+    <!-- Delete Image Modal -->
+    <div v-if="confirmOpen" class="backdrop" @click.self="closeConfirm">
+      <div class="miniModal" @click.stop>
+        <div class="miniTitle">Delete "{{ confirmItem?.name }}"?</div>
+
+        <div class="miniActions">
+          <button class="miniBtn ghost" @click="closeConfirm" :disabled="deleting">
+            No
+          </button>
+          <button class="miniBtn danger" @click="confirmDelete" :disabled="deleting">
+            {{ deleting ? "Deleting..." : "Yes" }}
+          </button>
+        </div>
+
+        <div v-if="deleteError" class="miniError">{{ deleteError }}</div>
+      </div>
+    </div>
+
 </template>
 
 <script setup>
@@ -278,6 +296,12 @@ const removeTagBusy = ref(false);
 const removeTagError = ref("");
 const removeTagItem = ref(null);
 const removeTagValue = ref("");
+
+/** Zip builder */
+const zipBusy = ref(false);
+const zipReady = ref(false);
+const zipId = ref(null);
+const zipError = ref(""); 
 
 const filtered = computed(() => {
   const q = query.value?.trim().toLowerCase();
@@ -474,6 +498,79 @@ async function confirmDelete() {
   } finally {
     deleting.value = false;
   }
+}
+
+async function downloadAll() {
+  try {
+    zipError.value = "";
+    const base = import.meta.env.VITE_API_BASE || "";
+    if (zipReady.value && zipId.value) {
+      await downloadZipById(zipId.value);
+      return;
+    }
+
+    zipBusy.value = true;
+    zipReady.value = false;
+    zipId.value = null;
+
+    const startRes = await fetch(`${base}/zip/build`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!startRes.ok) throw new Error(`Zip build start failed: ${startRes.status}`);
+    const startJson = await startRes.json();
+
+    const actionId = startJson?.id;
+    if (!actionId) throw new Error("Zip build did not return an action id");
+
+    let actionJson = null;
+    for (let i = 0; i < 60; i++) {
+      const aRes = await fetch(`${base}/actions/${encodeURIComponent(actionId)}`);
+      if (!aRes.ok) throw new Error(`Action poll failed: ${aRes.status}`);
+      actionJson = await aRes.json();
+
+      const status = actionJson?.status;
+      if (status === "completed") break;
+      if (status === "failed") throw new Error("Zip build failed");
+
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+
+    if (!actionJson || actionJson.status !== "completed") {
+      throw new Error("Zip build timed out");
+    }
+
+    const newZipId = actionJson?.output?.id;
+    if (!newZipId) throw new Error("Zip completed but no zip id found");
+
+    zipId.value = newZipId;
+    zipReady.value = true;
+  } catch (e) {
+    console.error(e);
+    zipError.value = String(e?.message || e);
+  } finally {
+    zipBusy.value = false;
+  }
+}
+
+async function downloadZipById(id) {
+  const base = import.meta.env.VITE_API_BASE || "";
+  const url = `${base}/zip/get/${encodeURIComponent(id)}`;
+
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Zip download failed: ${res.status} ${res.statusText}`);
+
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = `captures_${id}.zip`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  URL.revokeObjectURL(objectUrl);
 }
 
 /** Analyze */
