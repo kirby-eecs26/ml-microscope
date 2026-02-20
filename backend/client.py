@@ -9,6 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from fastapi import Query
+from backend.logging_store import list_events, add_message
 
 from backend import server
 import sys
@@ -246,6 +248,27 @@ def delete_capture_tag(capture_id: str, tag: str):
         return resp.json()
     except Exception:
         return {"ok": True}
+    
+@app.get("/api/v2/events/logging")
+def get_logging(level: str = Query("ALL")):
+    items = list_events(level)
+    items.reverse()
+    return items
+
+@app.get("/logging")
+def logging():
+    try:
+        url = f"{server.API_BASE}api/v2/events/logging"
+        r = requests.get(url, timeout=15)
+        r.raise_for_status()
+        return r.json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Logging fetch failed: {e}")
+
+@app.post("/api/v2/events/logging/test")
+def test_logging():
+    add_message("Test log event from ML microscope backend", levelname="INFO", filename="client.py", lineno=1)
+    return {"ok": True}
 
 
 # ---------------------------
@@ -276,6 +299,7 @@ if FRONTEND_DIST.exists():
     @app.get("/{full_path:path}")
     def serve_spa(full_path: str):
         if full_path.startswith((
+            "api",
             "health", "microscope", "move", "position", "center",
             "captures", "capture", "live", "analyze",
             "zip", "actions"
