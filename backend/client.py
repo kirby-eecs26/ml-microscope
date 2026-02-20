@@ -180,6 +180,45 @@ def delete_capture(capture_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
+@app.post("/zip/build")
+def zip_build():
+    try:
+        caps = server.listCaptures()
+        ids = [c["id"] for c in (caps or []) if "id" in c]
+
+        url = f"{server.API_BASE}api/v2/extensions/org.openflexure.zipbuilder/build"
+        r = requests.post(url, json=ids, timeout=30)
+        r.raise_for_status()
+        return r.json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Zip build failed: {e}")
+
+
+@app.get("/actions/{action_id}")
+def action_status(action_id: str):
+    try:
+        url = f"{server.API_BASE}api/v2/actions/{action_id}"
+        r = requests.get(url, timeout=15)
+        r.raise_for_status()
+        return r.json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Action fetch failed: {e}")
+    
+@app.get("/zip/get/{zip_id}")
+def zip_get(zip_id: str):
+    try:
+        url = f"{server.API_BASE}api/v2/extensions/org.openflexure.zipbuilder/get/{zip_id}"
+        r = requests.get(url, stream=True, timeout=120)
+        r.raise_for_status()
+
+        headers = {
+            "Content-Disposition": f'attachment; filename="captures_{zip_id}.zip"'
+        }
+        content_type = r.headers.get("Content-Type", "application/zip")
+        return StreamingResponse(r.raw, media_type=content_type, headers=headers)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Zip download failed: {e}")
+    
 @app.post("/analyze")
 def analyze(req: AnalyzeRequest):
     # TODO: replace with real output
@@ -236,7 +275,11 @@ if FRONTEND_DIST.exists():
 
     @app.get("/{full_path:path}")
     def serve_spa(full_path: str):
-        if full_path.startswith(("health", "move", "position", "center", "captures", "capture", "live", "analyze")):
+        if full_path.startswith((
+            "health", "microscope", "move", "position", "center",
+            "captures", "capture", "live", "analyze",
+            "zip", "actions"
+        )):
             raise HTTPException(status_code=404, detail="Not found")
         return FileResponse(str(FRONTEND_DIST / "index.html"))
 else:
