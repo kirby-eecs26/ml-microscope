@@ -7,19 +7,28 @@ const PROJECT_NAME = "Cellular Imaging Studio";
 let backendProc = null;
 
 function startBackend() {
-  // Packaged app: backend exe will live in resources/backend/MicroscopeBackend.exe
-  // Dev: points to your locally-built exe in repo dist/
+  const exeName = process.platform === "win32"
+    ? "MicroscopeBackend.exe"
+    : "MicroscopeBackend"; // mac/linux
+
+  // Packaged app: resources/backend/<exeName>
+  // Dev: dist/MicroscopeBackend/<exeName>
   const exePath = app.isPackaged
-    ? path.join(process.resourcesPath, "backend", "MicroscopeBackend.exe")
-    : path.join(__dirname, "..", "dist", "MicroscopeBackend", "MicroscopeBackend.exe");
+    ? path.join(process.resourcesPath, "backend", exeName)
+    : path.join(__dirname, "..", "dist", "MicroscopeBackend", exeName);
 
   backendProc = spawn(exePath, [], {
+    cwd: path.dirname(exePath),
     stdio: "inherit",
     windowsHide: true,
   });
 
   backendProc.on("exit", (code) => {
     console.log("Backend exited:", code);
+  });
+
+  backendProc.on("error", (err) => {
+    console.error("Backend spawn error:", err);
   });
 }
 
