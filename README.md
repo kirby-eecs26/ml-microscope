@@ -13,7 +13,7 @@ Microscope system that captures cell images and uses AI/ML image analysis to aut
 
 ## System Architecture
 
-*TO BE DONE.*
+*TO-DO: Front-end and backend add which programs, libraries, and other resources used to build this app. You can omit any default libraries (e.g., Python ships with the 'os' library already installed).*
 
 ## Repository Structure
 
@@ -65,7 +65,7 @@ ml-microscope/
 
 ## Setup and Installation
 
-*TO BE DONE.*
+*TO-DO: Frontend and back-end provide simple instructions for how a visitor to this repo can download and install our app.*
 
 ## Application Instructions
 
