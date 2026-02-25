@@ -6,11 +6,7 @@
 
 import time
 import math
-#from ctypes.wintypes import tagMSG
-#from http.client import responses
 import backend.error
-import numpy as np
-#import json
 import requests
 from libraries.GlobalVariables import (API_BASE, POS_X_BOUND, POS_Z_BOUND, NEG_Z_BOUND,
                                        MAX_DURATION_SEC)
@@ -199,9 +195,6 @@ def captureVideo(fpm: int, payload: dict, duration: float = MAX_DURATION_SEC) ->
 
     while time.time() - start_time < min(duration, MAX_DURATION_SEC):
         video.append(captureImg(payload))
-        # video.append(f"img{i}")
-        # i += 1
-        # time.sleep(spf)
 
     return video
 
@@ -212,11 +205,6 @@ def delete_capture(capture_id: str) -> bool:
     if r.status_code in (200, 204):
         return True
     raise RuntimeError(f"Delete failed: {r.status_code} {r.text}")
-
-
-# def download():
-#     """download img api call"""
-#     print("download")
 
 # if __name__ == "__main__":
 #     listCaptures()
