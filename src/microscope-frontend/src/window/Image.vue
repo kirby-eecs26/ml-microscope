@@ -318,8 +318,8 @@ async function saveToGallery() {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.6px;
-  margin-bottom: 10px;
-  opacity: 0.85;
+  opacity: 0.35;
+  margin-bottom: 15px;
 }
 
 .block {

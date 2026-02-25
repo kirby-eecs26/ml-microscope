@@ -18,7 +18,6 @@
         <div class="sectionTitle" id="MicroscopeSettingsTitle">Microscope Settings</div>
         <div class="settingsNav">
           <div class="navItem" :class="{ active: activeTab === 'camera' }" @click="activeTab = 'camera'">Camera</div>
-          <div class="navItem" :class="{ active: activeTab === 'stage' }" @click="activeTab = 'stage'">Stage</div>
           <div class="navItem" :class="{ active: activeTab === 'mapping' }" @click="activeTab = 'mapping'">Camera / Stage Mapping</div>
           <div class="navItem" :class="{ active: activeTab === 'general' }" @click="activeTab = 'general'">General</div>
         </div>
@@ -113,7 +112,7 @@
 
       <!-- CAMERA -->
       <div class="cameraSettings" v-if="activeTab === 'camera'">
-        <h2 class="contentTitle">Manual camera settings</h2>
+        <h2 class="contentTitle">Manual Camera Settings</h2>
 
         <div class="settingGroup">
           <h3 class="settingTitle">Pi Camera Settings</h3>
@@ -211,20 +210,48 @@
         </div>
       </div>
 
-      <!-- Stage Tab -->
-      <div class="stageSettings" v-if="activeTab === 'stage'">
-        <h2 class="contentTitle">Stage Settings</h2>
-      </div>
-
-      <!-- Camera/Stage Mapping Tab -->
+      <!-- CAMERA/STAGE MAPPING -->
       <div class="mappingSettings" v-if="activeTab === 'mapping'">
         <h2 class="contentTitle">Camera/Stage Mapping Settings</h2>
+
+        <div class="mapping-layout">
+          <div class="left-col">
+            <p class="settingDescription">
+              Camera/stage mapping allows the stage to move relative to the camera view.
+              This enables functions like click-to-move, and more precise tile scans.
+            </p>
+            <button class="primaryAction" @click="autoCalibrateMapping">AUTO-CALIBRATE USING CAMERA</button>
+          </div>
+          <div class="right-col">
+            <!-- Placeholder image -->
+            <img 
+              src="/cell.jpg" 
+              alt="Placeholder calibration image" 
+              style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;"
+            >
+          </div>
+        </div>
       </div>
 
-      <!-- General Tab -->
+      <!-- GENERAL -->
       <div class="generalSettings" v-if="activeTab === 'general'">
-        <h2 class="contentTitle">General Settings</h2>
+        <h2 class="contentTitle">Microscope Settings</h2>
+
+        <div class="settingGroup">
+          <div class="formRow">
+            <label for="microscopeName">Microscope name</label>
+            <input 
+              id="microscopeName" 
+              class="textInput" 
+              type="text" 
+              v-model="microscopeName" 
+              placeholder="Enter microscope name"
+            />
+          </div>
+          <button class="primaryAction" @click="saveGeneralSettings">APPLY SETTINGS</button>
+        </div>
       </div>
+
     </main>
   </div>
 </template>
@@ -565,5 +592,15 @@ function saveGeneralSettings() {
 .secondaryAction.danger {
   border-color: #e0b4b4;
   color: #8a1f1f;
+}
+
+.mapping-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.left-col {
+  max-width: 400px;  
 }
 </style>

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
-import { fetchLogs } from "../api/loggingApi";
+//import { fetchLogs } from "../api/loggingApi";
 import { watch } from "vue";
 
 const selectedPriority = ref("ALL"); // DEBUG/INFO/WARNING/ERROR/ALL

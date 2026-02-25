@@ -68,7 +68,8 @@ function handleBackdropClick() {
   font-weight: 700;
   font-size: 14px;
   cursor: pointer;
-  transition: filter 0.2s, background 0.2s;
+  transition: filter 0.2s;
+  background: 0.2s;
   width: 100%;
   padding: 0 16px;
   display: flex;
