@@ -15,6 +15,14 @@ Microscope system that captures cell images and uses AI/ML image analysis to aut
 
 *TO-DO: Front-end and backend add which programs, libraries, and other resources used to build this app. You can omit any default libraries (e.g., Python ships with the 'os' library already installed).*
 
+Backend Libraries: opencv-python-headless, requests, pydantic, csv, pathlib, numpy
+
+- 
+
+Front-End Libraries: Fastapi, uvicorn[standard]
+
+
+
 ## Repository Structure
 
 ```text

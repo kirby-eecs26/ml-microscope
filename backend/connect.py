@@ -3,10 +3,6 @@
 
 import requests
 import error
-import json #?? precaution
-from libraries import GlobalVariables
-print("connect.py is running")
-
 API_BASE = "http://microscope.local:5000/" #we can either put the last "/" here or at
                                             # hte beginning of the extensions,
 
