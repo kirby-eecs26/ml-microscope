@@ -32,7 +32,7 @@
         {{ busy && busyMode === "start" ? "STARTING..." : "START VIDEO" }}
       </button>
 
-      <button v-else class="primaryBtn" @click="stopRecording" :disabled="busy">
+      <button v-else class="primaryBtn stopBtn" @click="stopRecording" :disabled="busy">
         <span v-if="busy && busyMode === 'stop'" class="spinner"></span>
         {{ busy && busyMode === "stop" ? "STOPPING..." : "STOP VIDEO" }}
       </button>
@@ -46,12 +46,12 @@
     </section>
 
     <!-- RIGHT status -->
-    <section class="statusPanel">
+    <!--<section class="statusPanel">
       <div class="statusRow">
         <span class="dot" :class="{ on: connected }"></span>
         <span class="statusText">{{ connected ? "Connected" : "Disconnected" }}</span>
       </div>
-    </section>
+    </section>--> 
 
     <!-- STOP -> Modal -->
     <div v-if="stopModalOpen" class="backdrop" @click.self="closeStopModal">
@@ -367,7 +367,7 @@ async function saveToGallery() {
   font-weight: 700;
   letter-spacing: 0.6px;
   opacity: 0.35;
-  margin-bottom: 2px;
+  margin-bottom: 5px;
 }
 
 .field { display: grid; gap: 6px; }
@@ -437,6 +437,14 @@ async function saveToGallery() {
   font-weight: 900;
   font-size: 12px;
   cursor: pointer;
+}
+
+.primaryBtn.stopBtn {
+  background: #b00020; 
+}
+
+.primaryBtn.stopBtn:hover {
+  background: #8b0000; 
 }
 
 .primaryBtn:hover, .setBtn:hover { filter: brightness(0.95); }

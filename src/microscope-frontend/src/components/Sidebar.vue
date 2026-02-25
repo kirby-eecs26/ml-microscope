@@ -24,6 +24,11 @@
       <span class="material-symbols-outlined icon">videocam</span>
       <span class="label">Video</span>
     </RouterLink>
+
+    <RouterLink class="nav" to="/capture">
+      <span class="material-symbols-outlined icon">photo_camera</span>
+      <span class="label">Capture</span>
+    </RouterLink>
     
     <div class="spacer"></div>
 
