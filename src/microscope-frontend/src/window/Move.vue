@@ -3,37 +3,13 @@
     <!-- Left control panel -->
     <section class="controls">
       <div class="group">
-        <div class="groupTitle">Step Size</div>
+        <div class="groupTitle">MOVE</div>
 
-        <div class="row3">
-          <button
-            class="pill"
-            :class="{ active: stepAxis === 'x' }"
-            @click="stepAxis = 'x'"
-          >
-            x-step
-          </button>
-          <button
-            class="pill"
-            :class="{ active: stepAxis === 'y' }"
-            @click="stepAxis = 'y'"
-          >
-            y-step
-          </button>
-          <button
-            class="pill"
-            :class="{ active: stepAxis === 'z' }"
-            @click="stepAxis = 'z'"
-          >
-            z-step
-          </button>
-        </div>
-      </div>
-
-      <hr class="divider" />
-
-      <div class="group">
-        <div class="groupTitle">Move</div>
+        <div class="padRow labels">
+          <span class="axis-label">X</span>
+          <span class="axis-label">Y</span>
+          <span class="axis-label">Z</span>
+        </div> 
 
         <div class="arrowPad">
           <div class="padRow">
@@ -72,35 +48,6 @@
         <button class="secondaryBtn" @click="centerNow">
           CENTER STAGE
         </button>
-      </div>
-
-      <hr class="divider" />
-
-      <div class="group">
-        <div class="groupTitle">Auto-Focus</div>
-        <div class="row3">
-          <button
-            class="pill outline"
-            :class="{ active: autofocus === 'FAST' }"
-            @click="runAutofocus('FAST')"
-          >
-            FAST
-          </button>
-          <button
-            class="pill outline"
-            :class="{ active: autofocus === 'MEDIUM' }"
-            @click="runAutofocus('MEDIUM')"
-          >
-            MEDIUM
-          </button>
-          <button
-            class="pill outline"
-            :class="{ active: autofocus === 'FINE' }"
-            @click="runAutofocus('FINE')"
-          >
-            FINE
-          </button>
-        </div>
       </div>
 
       <div class="status">
@@ -279,9 +226,11 @@ function runAutofocus(mode) {
 }
 
 .groupTitle {
-  font-weight: 700;
   font-size: 12px;
-  margin: 2px 0 8px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  opacity: 0.35;
+  margin-bottom: 15px;
 }
 
 .divider {
@@ -318,6 +267,14 @@ function runAutofocus(mode) {
 
 .pill.outline {
   background: #fff;
+}
+
+.axis-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  padding-left: 12px;
+  color: #333;
 }
 
 .arrowPad {
