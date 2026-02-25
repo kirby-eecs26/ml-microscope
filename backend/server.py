@@ -12,8 +12,18 @@ import backend.error
 import numpy as np
 #import json
 import requests
+import cv2
+import os
+import uuid
+import threading
+from pathlib import Path
+import subprocess
 from libraries.GlobalVariables import (API_BASE, POS_X_BOUND, POS_Z_BOUND, NEG_Z_BOUND,
                                        MAX_DURATION_SEC)
+
+VIDEO_DIR = Path(__file__).resolve().parent / "video_outputs"
+VIDEO_DIR.mkdir(parents=True, exist_ok=True)
+RECORDINGS: dict[str, dict] = {}
 
 #Helper Functions
 
@@ -204,6 +214,153 @@ def captureVideo(fpm: int, payload: dict, duration: float = MAX_DURATION_SEC) ->
         # time.sleep(spf)
 
     return video
+
+def _iter_mjpeg_frames(url: str, timeout=10):
+    """
+    Yields JPEG bytes from a MJPEG stream.
+    """
+    r = requests.get(url, stream=True, timeout=timeout)
+    r.raise_for_status()
+
+    buf = b""
+    for chunk in r.iter_content(chunk_size=4096):
+        if not chunk:
+            continue
+        buf += chunk
+        a = buf.find(b"\xff\xd8")
+        b = buf.find(b"\xff\xd9")
+        if a != -1 and b != -1 and b > a:
+            jpg = buf[a:b+2]
+            buf = buf[b+2:]
+            yield jpg
+
+def _resize_keep_aspect(bgr, max_h=1080):
+    """
+    Helper for resizing video.
+    """
+    h, w = bgr.shape[:2]
+    if h <= max_h:
+        return bgr
+    scale = max_h / float(h)
+    new_w = int(w * scale)
+    new_h = int(h * scale)
+    return cv2.resize(bgr, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+def _record_worker(recording_id: str, fpm: int, max_frames: int, max_h: int):
+    stop_event = RECORDINGS[recording_id]["stop"]
+    raw_path = RECORDINGS[recording_id]["path_raw"]
+    final_path = RECORDINGS[recording_id]["path_final"]
+    mjpeg_url = mjpeg_stream_url()
+    interval = 60.0 / float(fpm)
+    writer = None
+    written = 0
+    next_t = time.time()
+    try:
+        for jpg in _iter_mjpeg_frames(mjpeg_url):
+            if stop_event.is_set():
+                break
+            now = time.time()
+            if now < next_t:
+                continue
+            next_t = now + interval
+            data = np.frombuffer(jpg, dtype=np.uint8)
+            frame_bgr = cv2.imdecode(data, cv2.IMREAD_COLOR)
+            if frame_bgr is None:
+                continue
+            frame_bgr = _resize_keep_aspect(frame_bgr, max_h=max_h)
+            if writer is None:
+                h, w = frame_bgr.shape[:2]
+                playback_fps = 10.0
+                fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+                writer = cv2.VideoWriter(str(raw_path), fourcc, playback_fps, (w, h))
+            writer.write(frame_bgr)
+            written += 1
+            if written >= max_frames:
+                break
+    finally:
+        if writer is not None:
+            writer.release()
+        meta = RECORDINGS[recording_id]["meta"]
+        meta["frames_written"] = written
+        meta["finished_at"] = time.time()
+        meta["done"] = True
+        try:
+            _transcode_h264(str(raw_path), str(final_path))
+            RECORDINGS[recording_id]["path"] = str(final_path)
+            meta["transcoded"] = True
+        except Exception as e:
+            meta["transcoded"] = False
+            meta["transcode_error"] = str(e)
+            RECORDINGS[recording_id]["path"] = str(raw_path)
+
+def _transcode_h264(src_path: str, dst_path: str):
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", src_path,
+        "-c:v", "libx264",
+        "-pix_fmt", "yuv420p",
+        "-preset", "veryfast",
+        "-movflags", "+faststart",
+        dst_path,
+    ]
+    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+
+def start_video_recording(fpm: int, max_frames: int = 300, max_h: int = 1080) -> dict:
+    if fpm not in (30, 60):
+        raise ValueError("Only 30 or 60 FPM allowed")
+
+    recording_id = uuid.uuid4().hex
+    out_path = VIDEO_DIR / f"{recording_id}_raw.mp4"
+    final_path = VIDEO_DIR / f"{recording_id}.mp4"
+
+    stop_event = threading.Event()
+    RECORDINGS[recording_id] = {
+        "stop": stop_event,
+        "path_raw": str(out_path),
+        "path_final": str(final_path),
+        "meta": {
+            "id": recording_id,
+            "fpm": fpm,
+            "max_frames": max_frames,
+            "max_h": max_h,
+            "started_at": time.time(),
+            "done": False,
+            "frames_written": 0,
+        },
+    }
+
+    t = threading.Thread(target=_record_worker, args=(recording_id, fpm, max_frames, max_h), daemon=True)
+    RECORDINGS[recording_id]["thread"] = t
+    t.start()
+
+    return {"id": recording_id, "path": str(out_path), "meta": RECORDINGS[recording_id]["meta"]}
+
+
+def stop_video_recording(recording_id: str) -> dict:
+    rec = RECORDINGS.get(recording_id)
+    if not rec:
+        raise KeyError("Unknown recording id")
+
+    rec["stop"].set()
+    t = rec.get("thread")
+    if t:
+        t.join(timeout=5.0)
+
+    return {"ok": True, "id": recording_id, "meta": rec["meta"], "path": rec["path"]}
+
+
+def get_video_path(recording_id: str) -> str:
+    rec = RECORDINGS.get(recording_id)
+    if not rec:
+        raise KeyError("Unknown recording id")
+    return rec["path"]
+
+
+def get_video_status(recording_id: str) -> dict:
+    rec = RECORDINGS.get(recording_id)
+    if not rec:
+        raise KeyError("Unknown recording id")
+    return rec["meta"]
 
 def delete_capture(capture_id: str) -> bool:
     url = f"{API_BASE}api/v2/captures/{capture_id}"

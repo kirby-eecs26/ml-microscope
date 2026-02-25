@@ -59,13 +59,14 @@ export async function deleteCapture(captureId) {
 }
 
 export async function analyzeCapture(captureId) {
-  const r = await fetch(`${BASE_URL}/analyze`, {
+  const res = await fetch(`${BASE_URL}/captures/${encodeURIComponent(captureId)}/analyze`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id: captureId }),
   });
-  if (!r.ok) throw new Error(`analyze failed: ${r.status}`);
-  return r.json();
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(t || `HTTP ${res.status}`);
+  }
+  return res.json();
 }
 
 export async function updateCaptureMetadata(captureId, payload) {

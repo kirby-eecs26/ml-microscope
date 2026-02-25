@@ -57,7 +57,6 @@
             </button>
             <!-- Tags row (visible on card) -->
             <div class="cardTags" :class="{ empty: displayTags(img).length === 0 }">
-              <template v-if="displayTags(img).length">
                 <span
                   v-for="t in displayTags(img)"
                   :key="t"
@@ -67,7 +66,15 @@
                 >
                   {{ t }}
                 </span>
-              </template>
+                 <!-- Add Tag chip (always at end/right of the row) -->
+                <button
+                  class="tagChip tagAddChip"
+                  @click.stop="openAddTag(img)"
+                  title="Add tag"
+                  type="button"
+                >
+                  + ADD
+                </button>
             </div>
           </div>
         </div>
@@ -151,25 +158,88 @@
     <div v-if="analysisOpen" class="analysisBackdrop" @click.self="closeAnalysisModal">
       <div class="analysisModal">
         <div class="analysisHeader">
-          <div class="analysisTitle">Analysis</div>
+          <div class="analysisHeaderLeft">
+            <div class="analysisTitle">Analysis</div>
+            <div class="analysisSubTitle">{{ analysisItem?.name }}</div>
+          </div>
+
           <button class="closeX" @click="closeAnalysisModal">×</button>
         </div>
 
         <div class="analysisDivider"></div>
 
-        <div class="analysisBody">
-          <div v-if="analysisItem?.analysis">
-            <div class="analysisLine">Cell Count: {{ analysisItem.analysis.cellCount }}</div>
-          </div>
-          <div v-else class="analysisHint">
-            No analysis found. Run <b>ANALYZE</b> first.
-          </div>
-        </div>
+        <div class="analysisGrid">
+          <!-- LEFT: image + toggle -->
+          <div class="analysisLeft">
+            <div class="viewerHeader">
+              <div class="viewerLabel">Image Preview</div>
 
-        <div class="analysisFooter">
-          <button class="saveBtn" :disabled="!analysisItem?.analysis" @click="saveAnalysis">
-            SAVE ANALYSIS
-          </button>
+              <button
+                class="toggleBtn"
+                :disabled="!analysisResult?.overlayImageUrl"
+                @click="overlayOn = !overlayOn"
+              >
+                {{ overlayOn ? "Show Original" : "Show Overlay" }}
+              </button>
+            </div>
+
+            <div class="viewerFrame">
+              <img
+                class="viewerImg"
+                :src="overlayOn && analysisResult?.overlayImageUrl ? analysisResult.overlayImageUrl : (analysisItem?.url || analysisItem?.thumbUrl || '/cell.jpg')"
+                alt="analysis preview"
+              />
+
+              <div v-if="analysisLoading" class="viewerOverlay">Analyzing...</div>
+              <div v-else-if="analysisError" class="viewerOverlay error">{{ analysisError }}</div>
+              <div v-else-if="overlayOn && !analysisResult?.overlayImageUrl" class="viewerOverlay warn">
+                Overlay not available yet
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT: results panel -->
+          <div class="analysisRight">
+            <div class="resultsTitle">Results:</div>
+
+            <div class="countBlock">
+              <div class="countLabel">Blob Count</div>
+              <div class="countValue">
+                {{ analysisResult?.blobCount ?? "—" }}
+              </div>
+            </div>
+
+            <div class="resultsMeta">
+              <div class="metaRow">
+                <div class="metaKey">Image</div>
+                <div class="metaVal">{{ analysisItem?.name }}</div>
+              </div>
+              <div class="metaRow">
+                <div class="metaKey">ID</div>
+                <div class="metaVal mono">{{ analysisItem?.id }}</div>
+              </div>
+              <div class="metaRow">
+                <div class="metaKey">Time</div>
+                <div class="metaVal">{{ formatDate(analysisItem?.datetime) }}</div>
+              </div>
+            </div>
+
+            <div class="analysisFooter">
+              <div v-if="savingAnalysis" class="saveStatus">
+                <span class="spinner"></span>
+                Saving...
+              </div>
+
+              <div v-else-if="saveOk" class="saveStatus ok">
+                <span class="check">✓</span>
+                Saved
+              </div>
+
+              <button class="saveBtn" :disabled="analysisLoading || !analysisResult || savingAnalysis" @click="saveAnalysis">
+                SAVE ANALYSIS
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -246,6 +316,31 @@
       </div>
     </div>
 
+    <!-- Add Tag Modal -->
+    <div v-if="addTagOpen" class="backdrop" @click.self="closeAddTag">
+      <div class="miniModal" @click.stop>
+        <div class="miniTitle">Add tag</div>
+
+        <input
+          class="miniInput"
+          v-model="addTagValue"
+          placeholder="e.g. sample1"
+          @keydown.enter.prevent="confirmAddTag"
+        />
+
+        <div class="miniActions">
+          <button class="miniBtn ghost" @click="closeAddTag" :disabled="addTagBusy">
+            Cancel
+          </button>
+          <button class="miniBtn danger" @click="confirmAddTag" :disabled="addTagBusy || !addTagValue.trim()">
+            {{ addTagBusy ? "Saving..." : "Save" }}
+          </button>
+        </div>
+
+        <div v-if="addTagError" class="miniError">{{ addTagError }}</div>
+      </div>
+    </div>
+
     <!-- Delete Image Modal -->
     <div v-if="confirmOpen" class="backdrop" @click.self="closeConfirm">
       <div class="miniModal" @click.stop>
@@ -289,6 +384,11 @@ const analysisItem = ref(null);
 const analysisLoading = ref(false);
 const analysisError = ref("");
 const analysisResult = ref(null); // { blobCount, overlayImageUrl, maskImageUrl }
+const showOverlay = ref(true);
+const overlayOn = ref(false);
+const savingAnalysis = ref(false);
+const saveOk = ref(false);
+const saveMsg = ref("");
 
 /** Remove tag */
 const removeTagOpen = ref(false);
@@ -296,6 +396,13 @@ const removeTagBusy = ref(false);
 const removeTagError = ref("");
 const removeTagItem = ref(null);
 const removeTagValue = ref("");
+
+/** Add tag */
+const addTagOpen = ref(false);
+const addTagBusy = ref(false);
+const addTagError = ref("");
+const addTagItem = ref(null);
+const addTagValue = ref("");
 
 /** Zip builder */
 const zipBusy = ref(false);
@@ -389,6 +496,54 @@ async function confirmRemoveTag() {
     removeTagError.value = String(e?.message || e);
   } finally {
     removeTagBusy.value = false;
+  }
+}
+
+function openAddTag(img) {
+  addTagItem.value = img;
+  addTagValue.value = "";
+  addTagError.value = "";
+  addTagOpen.value = true;
+}
+
+function closeAddTag(force = false) {
+  if (addTagBusy.value && !force) return;
+  addTagOpen.value = false;
+  addTagItem.value = null;
+  addTagValue.value = "";
+  addTagError.value = "";
+}
+
+async function confirmAddTag() {
+  if (!addTagItem.value) return;
+  const newTag = addTagValue.value.trim();
+  if (!newTag) return;
+  addTagBusy.value = true;
+  addTagError.value = "";
+
+  try {
+    const id = addTagItem.value.id;
+    const current = Array.isArray(addTagItem.value.tags) ? addTagItem.value.tags : [];
+    const merged = Array.from(new Set([...current, newTag]))
+      .map(t => String(t).trim())
+      .filter(t => t && t !== "temporary");
+    const base = import.meta.env.VITE_API_BASE || "";
+    const res = await fetch(`${base}/captures/${encodeURIComponent(id)}/tags`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tags: merged }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || `Failed to add tag (${res.status})`);
+    }
+    const target = gallery.value.find((x) => x.id === id);
+    if (target) target.tags = merged;
+    closeAddTag(true);
+  } catch (e) {
+    addTagError.value = String(e?.message || e);
+  } finally {
+    addTagBusy.value = false;
   }
 }
 
@@ -580,18 +735,83 @@ async function runAnalysis(img) {
   analysisLoading.value = true;
   analysisError.value = "";
   analysisResult.value = null;
+  overlayOn.value = false;
 
   try {
     const res = await analyzeCapture(img.id);
+
+    const base = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
+    const overlayUrlRaw = res.overlayImageUrl ?? null;
+
+    const overlayUrl = overlayUrlRaw
+      ? (overlayUrlRaw.startsWith("http") ? overlayUrlRaw : `${base}${overlayUrlRaw}`)
+      : null;
+
     analysisResult.value = {
-      blobCount: res.blobCount ?? res.count ?? 0,
-      overlayImageUrl: res.overlayImageUrl ?? null,
-      maskImageUrl: res.maskImageUrl ?? null,
+      blobCount: res.blobCount ?? 0,
+      overlayImageUrl: overlayUrl,
     };
   } catch (e) {
     analysisError.value = String(e?.message || e);
   } finally {
     analysisLoading.value = false;
+  }
+}
+
+const analysisImageSrc = computed(() => {
+  const base = import.meta.env.VITE_API_BASE || "";
+  const original = analysisItem.value?.url || null;
+  const overlay = analysisResult.value?.overlayImageUrl
+    ? `${base}${analysisResult.value.overlayImageUrl}`
+    : null;
+
+  if (showOverlay.value && overlay) return overlay;
+  return original;
+});
+
+async function saveAnalysis() {
+  if (!analysisItem.value || !analysisResult.value) return;
+  savingAnalysis.value = true;
+  saveOk.value = false;
+  saveMsg.value = "";
+  try {
+    const base = import.meta.env.VITE_API_BASE || "";
+    const existingAnn = analysisItem.value?.raw?.annotations || {};
+    const nextAnn = {
+      ...existingAnn,
+      ML_BlobCount: Number(analysisResult.value.blobCount ?? 0),
+      ML_AnalyzedAt: new Date().toISOString(),
+    };
+    const res = await fetch(
+      `${base}/captures/${encodeURIComponent(analysisItem.value.id)}/metadata`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          annotations: nextAnn,
+        }),
+      }
+    );
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(`Save analysis failed: ${res.status} ${txt}`);
+    }
+    saveOk.value = true;
+    saveMsg.value = "Saved";
+    await refreshCaptures();
+    const updated = gallery.value.find((x) => x.id === analysisItem.value.id);
+    if (updated) analysisItem.value = updated;
+    setTimeout(() => {
+      saveOk.value = false;
+      saveMsg.value = "";
+    }, 1500);
+
+  } catch (e) {
+    saveOk.value = false;
+    saveMsg.value = String(e?.message || e);
+    analysisError.value = saveMsg.value;
+  } finally {
+    savingAnalysis.value = false;
   }
 }
 
@@ -683,6 +903,21 @@ function closeAnalysisModal() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.tagAddChip {
+  background: rgba(255,255,255,0.16);
+  border: 1px dashed rgba(255,255,255,0.45);
+  color: rgba(255,255,255,0.9);
+  cursor: pointer;
+}
+
+.tagAddChip:hover {
+  background: rgba(255,255,255,0.22);
+}
+
+.tagAddChip:active {
+  transform: translateY(1px);
 }
 
 /* Download button (dark blue rounded) */
@@ -1009,13 +1244,13 @@ function closeAnalysisModal() {
 }
 
 .analysisModal {
-  width: min(1100px, 92vw);
-  height: min(560px, 80vh);
-  background: #f7f7f7;
+  width: min(1240px, 94vw);
+  height: min(760px, 88vh);
+  background: #ffffff;
   border: 1px solid #cfcfcf;
-  border-radius: 6px;
+  border-radius: 10px;
   box-shadow: 0 18px 50px rgba(0,0,0,0.35);
-  padding: 18px 20px;
+  padding: 16px 18px;
   display: flex;
   flex-direction: column;
 }
@@ -1024,48 +1259,238 @@ function closeAnalysisModal() {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+}
+
+.analysisHeaderLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .analysisTitle {
   font-size: 14px;
-  font-weight: 800;
-  color: #111;
+  font-weight: 900;
+  color: #1f4b7a;
+  letter-spacing: 0.2px;
+}
+
+.analysisSubTitle {
+  font-size: 12px;
+  color: #3b3b3b;
+  opacity: 0.85;
 }
 
 .closeX {
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   border: none;
   background: transparent;
-  font-size: 24px;
+  font-size: 26px;
   line-height: 1;
   cursor: pointer;
-  color: #333;
+  color: #1f4b7a;
+  border-radius: 8px;
+}
+.closeX:hover {
+  background: rgba(31, 75, 122, 0.08);
 }
 
 .analysisDivider {
   height: 1px;
-  background: #d4d4d4;
+  background: #e2e2e2;
   margin: 12px 0;
 }
 
-.analysisBody {
+/* Layout: left viewer + right results */
+.analysisGrid {
   flex: 1;
+  display: grid;
+  grid-template-columns: 1.6fr 0.85fr;
+  gap: 14px;
+  min-height: 0; /* IMPORTANT so children can scroll/fit */
+}
+
+.analysisLeft,
+.analysisRight {
+  min-height: 0;
+  border-radius: 10px;
+}
+
+/* LEFT */
+.analysisLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.viewerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.viewerLabel {
   font-size: 12px;
-  color: #333;
+  font-weight: 900;
+  color: #1f4b7a;
+  letter-spacing: 0.2px;
 }
 
-.analysisLine {
-  padding: 6px 0;
+.toggleBtn {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 8px;
+  background: #1f4b7a;
+  color: #fff;
+  border: 1px solid #1f4b7a;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.toggleBtn:hover {
+  filter: brightness(0.95);
+}
+.toggleBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
-.analysisHint {
-  opacity: 0.85;
+/* Image frame keeps image contained without changing its actual resolution */
+.viewerFrame {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  border-radius: 10px;
+  border: 1px solid rgba(31, 75, 122, 0.25);
+  background: rgba(31, 75, 122, 0.06);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
 }
 
+.viewerImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* KEY: contained, not stretched */
+  display: block;
+}
+
+/* status overlays */
+.viewerOverlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0,0,0,0.35);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.2px;
+}
+.viewerOverlay.error {
+  background: rgba(176, 0, 32, 0.55);
+}
+.viewerOverlay.warn {
+  background: rgba(31, 75, 122, 0.55);
+}
+
+/* RIGHT */
+.analysisRight {
+  border: 1px solid rgba(31, 75, 122, 0.25);
+  background: rgba(31, 75, 122, 0.06);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.resultsTitle {
+  font-size: 13px;
+  font-weight: 900;
+  color: #1f4b7a;
+}
+
+.countBlock {
+  border-radius: 12px;
+  background: #1f4b7a;
+  color: #fff;
+  padding: 14px 14px;
+  border: 1px solid rgba(255,255,255,0.18);
+}
+
+.countLabel {
+  font-size: 12px;
+  font-weight: 900;
+  opacity: 0.95;
+  letter-spacing: 0.2px;
+}
+
+.countValue {
+  font-size: 56px;
+  font-weight: 1000;
+  line-height: 1.0;
+  margin-top: 6px;
+}
+
+.resultsMeta {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  background: rgba(255,255,255,0.85);
+  border: 1px solid rgba(31, 75, 122, 0.15);
+  border-radius: 12px;
+}
+
+.metaRow {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.metaKey {
+  font-size: 11px;
+  font-weight: 900;
+  color: #1f4b7a;
+  opacity: 0.95;
+}
+
+.metaVal {
+  font-size: 12px;
+  color: #222;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.metaVal.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+/* Footer pinned to bottom */
 .analysisFooter {
+  margin-top: auto;
   display: flex;
   justify-content: flex-end;
+}
+
+.saveBtn {
+  height: 44px;
+  min-width: 220px;
+  border: none;
+  border-radius: 10px;
+  background: #1f4b7a;
+  color: #fff;
+  font-weight: 1000;
+  cursor: pointer;
+}
+.saveBtn:hover {
+  filter: brightness(0.95);
+}
+.saveBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .saveBtn {
@@ -1231,6 +1656,50 @@ function closeAnalysisModal() {
   margin-top: 10px;
   font-size: 12px;
   color: #b00020;
+}
+
+/* Save analysis button */
+.saveStatus {
+  margin-right: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 900;
+  color: #1f4b7a;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(31, 75, 122, 0.08);
+  border: 1px solid rgba(31, 75, 122, 0.18);
+}
+
+.saveStatus.ok {
+  background: rgba(31, 75, 122, 0.12);
+}
+
+.check {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #1f4b7a;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 2px solid rgba(31, 75, 122, 0.25);
+  border-top-color: #1f4b7a;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 </style>

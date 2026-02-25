@@ -51,10 +51,6 @@
               <button class="pill" :class="{ active: frameRate === 30 }" @click="setPreset(30)">
               30</button>
             </div>
-            <div class="rowCustom">
-              <input class="miniInput" v-model.number="customRate" type="number" placeholder="fpm" min="1"/>
-              <button class="setBtn" @click="setCustom">SET</button>
-            </div>
           </div>
 
 					<button v-if="!recording" class="primaryBtn" @click="startRecording" :disabled="videoBusy">
@@ -236,12 +232,13 @@
 
           <div class="modalRight">
             <div class="modalPreviewFrame">
-              <img
+              <video
                 v-if="stopPreviewUrl"
-                class="modalPreviewImg"
                 :src="stopPreviewUrl"
-                alt="Video frame preview"
-              />
+                controls
+                class="modalPreviewVideo"
+              ></video>
+
               <CameraPreview v-else />
             </div>
           </div>
@@ -281,7 +278,6 @@ const capturedImageId = ref(null);
 // ----- Video state -----
 const videoResolution = ref("FULL");
 const frameRate = ref(60);
-const customRate = ref(null);
 const recording = ref(false);
 const videoBusy = ref(false);
 const videoBusyMode = ref(""); // "start", "stop", "count", "save"
@@ -302,12 +298,6 @@ const cellCount = ref(null);
 
 // ----- Helper functions (video) -----
 function setPreset(n) {
-  frameRate.value = n;
-  customRate.value = null;
-}
-function setCustom() {
-  const n = Number(customRate.value);
-  if (!Number.isFinite(n) || n <= 0) return;
   frameRate.value = n;
 }
 
@@ -433,10 +423,9 @@ async function startRecording() {
 
     const isRaw = videoResolution.value === "RAW";
     const payload = {
-      resolution: videoResolution.value,
-      frames_per_minute: frameRate.value,
-      use_video_port: isRaw,
-      bayer: isRaw,
+      fpm: frameRate.value,
+      max_frames: 300,
+      max_h: videoResolution.value === "RAW" ? 624 : 1080,
     };
 
     const result = await startVideo(payload);
@@ -458,8 +447,16 @@ async function stopRecording() {
     videoBusyMode.value = "stop";
     videoStatus.value = "Stopping recording...";
 
-    const result = await stopVideo({ recording_id: recordingId.value });
-    recordedVideoId.value = result?.video?.id ?? result?.id ?? recordingId.value;
+    const result = await stopVideo(recordingId.value);
+    recordedVideoId.value =
+      result?.id ??
+      result?.video_id ??
+      result?.video?.id ??
+      result?.recording?.video_id ??
+      null;
+    if (!recordedVideoId.value) {
+      throw new Error("Stop succeeded but no video id returned from backend");
+    }
     recordingId.value = null;
     recording.value = false;
 
@@ -468,7 +465,7 @@ async function stopRecording() {
       stopPreviewUrl.value = preview;
     } else {
       const base = import.meta.env.VITE_API_BASE || "";
-      stopPreviewUrl.value = recordedVideoId.value ? `${base}/videos/${encodeURIComponent(recordedVideoId.value)}/preview` : "";
+      stopPreviewUrl.value = `${base}/video/${encodeURIComponent(recordedVideoId.value)}/download?t=${Date.now()}`
     }
 
     openStopModal();
@@ -954,6 +951,13 @@ async function saveVideoToGallery() {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.modalPreviewVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
 }
 
 .spinner {

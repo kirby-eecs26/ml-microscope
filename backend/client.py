@@ -11,10 +11,26 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from fastapi import Query
 from backend.logging_store import list_events, add_message
+# Count ml imports
+import os
+import time
+import uuid
+import numpy as np
+import cv2
+from fastapi.responses import FileResponse
+
+from backend.count import count_from_rgb
+from backend.server import get_video_path
 
 from backend import server
 import sys
 import uvicorn
+
+ANALYSIS_DIR = Path(__file__).resolve().parent / "analysis_outputs"
+ANALYSIS_DIR.mkdir(parents=True, exist_ok=True)
+
+ANALYSIS_CACHE: dict[str, dict] = {}
+ANALYSIS_TTL_SEC = 60 * 60  # 1 hour
 
 app = FastAPI(title="ML Microscope Backend")
 
@@ -54,6 +70,17 @@ class SaveCaptureRequest(BaseModel):
     notes: str | None = None
     annotations: dict = {}
     tags: list[str] = []
+
+class TagsRequest(BaseModel):
+    tags: list[str] = []
+
+class VideoStartRequest(BaseModel):
+    fpm: int
+    max_frames: int = 300
+    max_h: int = 1080
+
+class VideoStopRequest(BaseModel):
+    recording_id: str
 
 
 # -----------------------
@@ -123,6 +150,46 @@ def get_capture_image(capture_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Fetch capture image failed: {e}")
     
+@app.post("/video/start")
+def video_start(req: VideoStartRequest):
+    try:
+        info = server.start_video_recording(
+            fpm=req.fpm,
+            max_frames=req.max_frames,
+            max_h=req.max_h
+        )
+        return {"ok": True, **info}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Video start failed: {e}")
+
+
+@app.post("/video/stop")
+def video_stop(req: VideoStopRequest):
+    try:
+        info = server.stop_video_recording(req.recording_id)
+        return {"ok": True, **info}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Video stop failed: {e}")
+
+
+@app.get("/video/{recording_id}/status")
+def video_status(recording_id: str):
+    try:
+        return server.get_video_status(recording_id)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.get("/video/{video_id}/download")
+def download_video(video_id: str):
+    path = get_video_path(video_id)
+    return FileResponse(
+        path,
+        media_type="video/mp4",
+        filename=f"{video_id}.mp4",
+        headers={"Content-Disposition": f'inline; filename="{video_id}.mp4"'},
+    )
+   
 @app.put("/captures/{capture_id}/metadata")
 def update_capture_metadata(capture_id: str, req: SaveCaptureRequest):
     try:
@@ -131,19 +198,32 @@ def update_capture_metadata(capture_id: str, req: SaveCaptureRequest):
             ann["Notes"] = req.notes
         if req.filename:
             ann["DisplayName"] = req.filename
-
         ann_url = f"{server.API_BASE}api/v2/captures/{capture_id}/annotations"
         r1 = requests.put(ann_url, json=ann, timeout=15)
         r1.raise_for_status()
-
-        tags = [t for t in (req.tags or []) if t and t != "temporary"]
-        tags_url = f"{server.API_BASE}api/v2/captures/{capture_id}/tags"
-        r2 = requests.put(tags_url, json=tags, timeout=15)
-        r2.raise_for_status()
-
-        return {"ok": True, "annotations": ann, "tags": tags}
+        if req.tags is not None:
+            tags = [t for t in (req.tags or []) if t and t != "temporary"]
+            if len(tags) > 0:
+                tags_url = f"{server.API_BASE}api/v2/captures/{capture_id}/tags"
+                r2 = requests.put(tags_url, json=tags, timeout=15)
+                r2.raise_for_status()
+        return {"ok": True, "annotations": ann, "tags": req.tags}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Update metadata failed: {e}")
+    
+@app.put("/captures/{capture_id}/tags")
+def set_capture_tags(capture_id: str, req: TagsRequest):
+    try:
+        tags = [str(t).strip() for t in (req.tags or [])]
+        tags = [t for t in tags if t and t != "temporary"]
+
+        tags_url = f"{server.API_BASE}api/v2/captures/{capture_id}/tags"
+        r = requests.put(tags_url, json=tags, timeout=15)
+        r.raise_for_status()
+
+        return {"ok": True, "tags": tags}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Update tags failed: {e}")
 
 
 @app.post("/move")
@@ -221,15 +301,56 @@ def zip_get(zip_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Zip download failed: {e}")
     
-@app.post("/analyze")
-def analyze(req: AnalyzeRequest):
-    # TODO: replace with real output
-    return {
-        "ok": True,
-        "blobCount": 89,
-        "overlayImageUrl": None,  # later could be "/analysis/{id}/overlay.png"
-        "maskImageUrl": None
-    }
+@app.post("/captures/{capture_id}/analyze")
+def analyze_capture(capture_id: str):
+    try:
+        meta = requests.get(f"{server.API_BASE}api/v2/captures/{capture_id}", timeout=10)
+        meta.raise_for_status()
+        name = meta.json().get("name", "capture.jpeg")
+
+        img_url = f"{server.API_BASE}api/v2/captures/{capture_id}/download/{name}"
+        r = requests.get(img_url, timeout=30)
+        r.raise_for_status()
+
+        data = np.frombuffer(r.content, dtype=np.uint8)
+        bgr = cv2.imdecode(data, cv2.IMREAD_COLOR)
+        if bgr is None:
+            raise Exception("OpenCV could not decode image bytes")
+        rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+        result = count_from_rgb(rgb, debug=True)
+        overlay_bgr = result.overlay_bgr
+        if overlay_bgr is None:
+            raise Exception("Overlay not generated (debug=True required)")
+        out_name = f"{capture_id}_{uuid.uuid4().hex}.jpg"
+        out_path = ANALYSIS_DIR / out_name
+        ok = cv2.imwrite(str(out_path), overlay_bgr)
+        if not ok:
+            raise Exception("Failed to write overlay image")
+
+        ANALYSIS_CACHE[capture_id] = {
+            "overlay_path": str(out_path),
+            "created": time.time(),
+            "count": int(result.count),
+        }
+
+        return {
+            "ok": True,
+            "blobCount": int(result.count),
+            "overlayImageUrl": f"/analysis/{capture_id}/overlay",
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Analyze failed: {e}")
+    
+@app.get("/analysis/{capture_id}/overlay")
+def get_overlay(capture_id: str):
+    item = ANALYSIS_CACHE.get(capture_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="No analysis found for this capture")
+    path = item["overlay_path"]
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Overlay file missing")
+    return FileResponse(path, media_type="image/jpeg")
 
 @app.delete("/captures/{capture_id}/tags/{tag}")
 def delete_capture_tag(capture_id: str, tag: str):
@@ -302,7 +423,8 @@ if FRONTEND_DIST.exists():
             "api",
             "health", "microscope", "move", "position", "center",
             "captures", "capture", "live", "analyze",
-            "zip", "actions"
+            "zip", "actions",
+            "analysis",
         )):
             raise HTTPException(status_code=404, detail="Not found")
         return FileResponse(str(FRONTEND_DIST / "index.html"))

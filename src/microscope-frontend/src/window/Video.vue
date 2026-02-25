@@ -152,7 +152,7 @@
 <script setup>
 import { ref } from "vue";
 import CameraPreview from "../components/CameraPreview.vue";
-import { startVideo, stopVideo, analyzeVideo, saveVideoToGallery } from "../api/videoApi";
+//import { startVideo, stopVideo} from "../api/videoApi";
 
 const connected = ref(true);
 
