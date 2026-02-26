@@ -44,9 +44,10 @@ def apiHealth(timeout=2.0) -> bool:
         return False
 
 
+# LENS MOVEMENT
 def checkCords(x, y, z) -> bool:
     """
-    takes in x,,yz coordinates and checks that the points are in the circular
+    takes in x,y,z coordinates and checks that the points are in the circular
     bounds of the microscope case and stops before it hits the slide or
     z gets to low in bounds
     :param x: x axis cord
@@ -137,7 +138,7 @@ def moveButton(x: int, y: int, z: int, timeout = 60.0):
     except (Exception, backend.error.MoveMicroscopeError) as e:
         print(e.__str__())
 
-
+# IMAGE
 def captureImg(payload: dict, timeout = 2.0):
     """
     take image and save to local pi
@@ -178,6 +179,7 @@ def listCaptures(timeout = 2.0):
         print("Camera error: could not list captures")
 
 
+# LIVE FEED
 def mjpeg_stream_url():
     try:
         return f"{API_BASE}api/v2/streams/mjpeg"
@@ -185,6 +187,7 @@ def mjpeg_stream_url():
         print("Camera error: could not stream mjpeg")
 
 
+# VIDEO
 def captureVideo(fpm: int, payload: dict, duration: float = MAX_DURATION_SEC) -> list:
     """
     takes in pyload of image capture annotations and notes, fpm, and duration,
@@ -208,6 +211,7 @@ def captureVideo(fpm: int, payload: dict, duration: float = MAX_DURATION_SEC) ->
 
     return video
 
+
 def _iter_mjpeg_frames(url: str, timeout=10):
     """
     Yields JPEG bytes from a MJPEG stream.
@@ -227,6 +231,7 @@ def _iter_mjpeg_frames(url: str, timeout=10):
             buf = buf[b+2:]
             yield jpg
 
+
 def _resize_keep_aspect(bgr, max_h=1080):
     """
     Helper for resizing video.
@@ -238,6 +243,7 @@ def _resize_keep_aspect(bgr, max_h=1080):
     new_w = int(w * scale)
     new_h = int(h * scale)
     return cv2.resize(bgr, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
 
 def _record_worker(recording_id: str, fpm: int, max_frames: int, max_h: int):
     stop_event = RECORDINGS[recording_id]["stop"]
@@ -286,6 +292,7 @@ def _record_worker(recording_id: str, fpm: int, max_frames: int, max_h: int):
             meta["transcode_error"] = str(e)
             RECORDINGS[recording_id]["path"] = str(raw_path)
 
+
 def _transcode_h264(src_path: str, dst_path: str):
     cmd = [
         "ffmpeg", "-y",
@@ -297,6 +304,7 @@ def _transcode_h264(src_path: str, dst_path: str):
         dst_path,
     ]
     subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+
 
 def start_video_recording(fpm: int, max_frames: int = 300, max_h: int = 1080) -> dict:
     if fpm not in (30, 60):
@@ -355,6 +363,7 @@ def get_video_status(recording_id: str) -> dict:
         raise KeyError("Unknown recording id")
     return rec["meta"]
 
+
 def delete_capture(capture_id: str) -> bool:
     url = f"{API_BASE}api/v2/captures/{capture_id}"
     r = requests.delete(url, timeout=10)
@@ -367,3 +376,54 @@ def delete_capture(capture_id: str) -> bool:
 #     listCaptures()
 #
 
+# SETTINGS
+
+#camera settings
+def pi_camera_settings(payload: dict, timeout=2.0):
+    try:
+        r = requests.post(f"{API_BASE}api/v2/actions/camera/settings", json=payload, timeout=timeout)
+        r.raise_for_status()
+        return r.json()
+
+    except requests.exceptions.RequestException as e:
+        print(f"{e} PI Camera Settings error")
+
+
+def image_quality_settings(payload: dict, timeout=2.0):
+    try:
+        r = requests.post(f"{API_BASE}api/v2/actions/captures/settings", json=payload, timeout=timeout)
+        r.raise_for_status()
+        return r.json()
+
+    except requests.exceptions.RequestException as e:
+        print(f"{e} Image Quality Settings error")
+
+
+def advanced_settings(payload: dict, timeout=2.0):
+    try:
+        r = requests.post(f"{API_BASE}api/v2/actions/camera/settings", json=payload, timeout=timeout)
+        r.raise_for_status()
+        return r.json()
+
+    except requests.exceptions.RequestException as e:
+        print(f"{e} Advanced Settings error")
+
+
+def calibration_settings(payload: dict, timeout=2.0):
+    try:
+        r = requests.post(f"{API_BASE}api/v2/actions/calibration", json=payload, timeout=timeout)
+        r.raise_for_status()
+        return r.json()
+
+    except requests.exceptions.RequestException as e:
+        print(f"{e} Calibration Settings error")
+
+
+def set_name(payload: dict, timeout=2.0):
+    try:
+        r = requests.post(f"{API_BASE}api/v2/actions/name", json=payload, timeout=timeout)
+        r.raise_for_status()
+        return r.json()
+
+    except requests.exceptions.RequestException as e:
+        print(f"{e} Set Name error")
