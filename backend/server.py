@@ -420,10 +420,10 @@ def delete_video_recording(recording_id: str) -> bool:
 
 # SETTINGS
 
-#camera settings
-def pi_camera_settings(payload: dict, timeout=2.0):
+# CAMERA SETTINGS
+def settings(payload: dict, timeout=2.0):
     try:
-        r = requests.post(f"{API_BASE}api/v2/actions/camera/settings", json=payload, timeout=timeout)
+        r = requests.post(f"{API_BASE}api/v2/instrument/settings", json=payload, timeout=timeout)
         r.raise_for_status()
         return r.json()
 
@@ -431,29 +431,30 @@ def pi_camera_settings(payload: dict, timeout=2.0):
         print(f"{e} PI Camera Settings error")
 
 
-def image_quality_settings(payload: dict, timeout=2.0):
+# CALIBRATION
+def full_autocalibrate(timeout=2.0):
     try:
-        r = requests.post(f"{API_BASE}api/v2/actions/captures/settings", json=payload, timeout=timeout)
+        r = requests.post(f"{API_BASE}api/v2/extensions/org.openflexure.calibration.picamera/recalibrate", timeout=timeout)
         r.raise_for_status()
         return r.json()
 
     except requests.exceptions.RequestException as e:
-        print(f"{e} Image Quality Settings error")
+        print(f"{e} Auto Calibration Settings error")
 
 
-def advanced_settings(payload: dict, timeout=2.0):
+def auto_gain_shutter_speed(timeout=2.0):
     try:
-        r = requests.post(f"{API_BASE}api/v2/actions/camera/settings", json=payload, timeout=timeout)
+        r = requests.post(f"{API_BASE}api/v2/extensions/org.openflexure.calibration.picamera/auto_exposure_from_raw", timeout=timeout)
         r.raise_for_status()
         return r.json()
 
     except requests.exceptions.RequestException as e:
-        print(f"{e} Advanced Settings error")
+        print(f"{e} PI Camera Settings error")
 
 
-def calibration_settings(payload: dict, timeout=2.0):
+def auto_white_balance(timeout=2.0):
     try:
-        r = requests.post(f"{API_BASE}api/v2/actions/calibration", json=payload, timeout=timeout)
+        r = requests.post(f"{API_BASE}api/v2/extensions/org.openflexure.calibration.picamera/auto_white_balance_from_raw", timeout=timeout)
         r.raise_for_status()
         return r.json()
 
@@ -461,11 +462,32 @@ def calibration_settings(payload: dict, timeout=2.0):
         print(f"{e} Calibration Settings error")
 
 
-def set_name(payload: dict, timeout=2.0):
+def auto_flat_field_correction(timeout=2.0):
     try:
-        r = requests.post(f"{API_BASE}api/v2/actions/name", json=payload, timeout=timeout)
+        r = requests.post(f"{API_BASE}api/v2/extensions/org.openflexure.calibration.picamera/auto_lens_shading_table", timeout=timeout)
         r.raise_for_status()
         return r.json()
 
     except requests.exceptions.RequestException as e:
-        print(f"{e} Set Name error")
+        print(f"{e} Calibration Settings error")
+
+
+def disable_flat_field_correction(timeout=2.0):
+    try:
+        r = requests.post(f"{API_BASE}api/v2/extensions/org.openflexure.calibration.picamera/flatten_lens_shading_table", timeout=timeout)
+        r.raise_for_status()
+        return r.json()
+
+    except requests.exceptions.RequestException as e:
+        print(f"{e} Calibration Settings error")
+
+
+# Camera/stage mapping
+def autocalibrate_using_camera(timeout=2.0):
+    try:
+        r = requests.post(f"{API_BASE}api/v2/extensions/org.openflexure.camera-stage-mapping/calibrate_xy", timeout=timeout)
+        r.raise_for_status()
+        return r.json()
+
+    except requests.exceptions.RequestException as e:
+        print(f"{e} Calibration Settings error")
