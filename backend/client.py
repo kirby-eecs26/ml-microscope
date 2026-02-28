@@ -22,12 +22,18 @@ from fastapi.responses import FileResponse
 from backend.count import count_from_rgb
 from backend.server import get_video_path
 
+from backend.motion import analyze_motion, MotionConfig
+
 from backend import server
 import sys
 import uvicorn
+import shutil
 
 ANALYSIS_DIR = Path(__file__).resolve().parent / "analysis_outputs"
 ANALYSIS_DIR.mkdir(parents=True, exist_ok=True)
+
+SAVED_VIDEOS_DIR = Path(__file__).resolve().parent / "saved_videos"
+SAVED_VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
 
 ANALYSIS_CACHE: dict[str, dict] = {}
 ANALYSIS_TTL_SEC = 60 * 60  # 1 hour
@@ -81,6 +87,14 @@ class VideoStartRequest(BaseModel):
 
 class VideoStopRequest(BaseModel):
     recording_id: str
+
+class VideoAnalyzeRequest(BaseModel):
+    type: str = "motion_tracking"
+    mode: str = "ml_kmeans"
+    config: dict | None = None
+
+class SaveVideoAnalysisRequest(BaseModel):
+    analysis: dict = {}
 
 
 # -----------------------
@@ -182,13 +196,121 @@ def video_status(recording_id: str):
 
 @app.get("/video/{video_id}/download")
 def download_video(video_id: str):
-    path = get_video_path(video_id)
+    saved_path = SAVED_VIDEOS_DIR / f"{video_id}.mp4"
+    if saved_path.exists():
+        return FileResponse(
+            str(saved_path),
+            media_type="video/mp4",
+            filename=f"{video_id}.mp4",
+            headers={"Content-Disposition": f'inline; filename="{video_id}.mp4"'},
+        )
+    try:
+        path = server.get_video_path(video_id)
+    except Exception:
+        raise HTTPException(status_code=404, detail="Video not found")
+
     return FileResponse(
         path,
         media_type="video/mp4",
         filename=f"{video_id}.mp4",
         headers={"Content-Disposition": f'inline; filename="{video_id}.mp4"'},
     )
+
+@app.post("/video/analyze/{video_id}")
+def analyze_video_route(video_id: str, req: VideoAnalyzeRequest):
+    try:
+        if req.type not in ("motion_tracking", "motion_tracking_ml"):
+            raise HTTPException(status_code=400, detail="Unsupported analysis type")
+
+        path = server.get_video_path(video_id)
+
+        cfg = MotionConfig()
+        if req.config:
+            for k, v in req.config.items():
+                if hasattr(cfg, k):
+                    setattr(cfg, k, v)
+
+        mode = req.mode or "ml_kmeans"
+        result = analyze_motion(path, cfg=cfg, mode=mode)
+        return {"ok": True, **result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Video analyze failed: {e}")
+    
+@app.put("/video/{video_id}/analysis")
+def save_video_analysis(video_id: str, req: SaveVideoAnalysisRequest):
+    try:
+        import json
+        meta_path = SAVED_VIDEOS_DIR / f"{video_id}.json"
+        if not meta_path.exists():
+            raise HTTPException(status_code=404, detail="Video metadata not found (is it saved?)")
+
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        meta["analysis"] = req.analysis or {}
+        meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+        return {"ok": True, "video": meta}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Save video analysis failed: {e}")
+    
+
+@app.get("/videos")
+def list_videos():
+    try:
+        out = []
+        for p in SAVED_VIDEOS_DIR.glob("*.json"):
+            try:
+                import json
+                meta = json.loads(p.read_text(encoding="utf-8"))
+                vid = meta.get("id")
+                if not vid:
+                    continue
+                mp4_path = SAVED_VIDEOS_DIR / f"{vid}.mp4"
+                if not mp4_path.exists():
+                    continue
+                out.append(meta)
+            except Exception:
+                pass
+        out.sort(key=lambda x: x.get("time", ""), reverse=True)
+        return {"videos": out}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"List videos failed: {e}")
+
+@app.post("/video/{video_id}/save")
+def save_video(video_id: str, req: SaveCaptureRequest):
+    try:
+        src = server.get_video_path(video_id)
+        if not src or not os.path.exists(src):
+            raise HTTPException(status_code=404, detail="Temp video not found")
+        dst = SAVED_VIDEOS_DIR / f"{video_id}.mp4"
+        shutil.copy2(src, dst)
+        server.delete_video_recording(video_id)
+        base_name = (req.filename or f"video_{video_id}").strip()
+        ann = dict(req.annotations or {})
+        if req.notes:
+            ann["Notes"] = req.notes
+        meta = {
+            "id": video_id,
+            "name": base_name,
+            "path": str(dst),
+            "time": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "format": "mp4",
+            "annotations": ann,
+            "tags": [t for t in (req.tags or []) if t and t != "temporary"],
+        }
+        meta_path = SAVED_VIDEOS_DIR / f"{video_id}.json"
+        with open(meta_path, "w", encoding="utf-8") as f:
+            import json
+            json.dump(meta, f, indent=2)
+        return {"ok": True, "video": meta}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Save video failed: {e}")
+    
+
    
 @app.put("/captures/{capture_id}/metadata")
 def update_capture_metadata(capture_id: str, req: SaveCaptureRequest):
@@ -370,6 +492,25 @@ def delete_capture_tag(capture_id: str, tag: str):
     except Exception:
         return {"ok": True}
     
+@app.delete("/video/{video_id}")
+def delete_video(video_id: str):
+    try:
+        mp4_path = SAVED_VIDEOS_DIR / f"{video_id}.mp4"
+        json_path = SAVED_VIDEOS_DIR / f"{video_id}.json"
+        deleted_any = False
+        if mp4_path.exists():
+            mp4_path.unlink()
+            deleted_any = True
+        if json_path.exists():
+            json_path.unlink()
+            deleted_any = True
+        if deleted_any:
+            return {"ok": True, "deleted": True, "where": "saved_videos"}
+        ok = server.delete_video_recording(video_id)
+        return {"ok": bool(ok), "deleted": bool(ok), "where": "video_outputs_or_recordings"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Video delete failed: {e}")
+    
 @app.get("/api/v2/events/logging")
 def get_logging(level: str = Query("ALL")):
     items = list_events(level)
@@ -390,6 +531,19 @@ def logging():
 def test_logging():
     add_message("Test log event from ML microscope backend", levelname="INFO", filename="client.py", lineno=1)
     return {"ok": True}
+
+@app.delete("/analysis/{capture_id}")
+def clear_analysis(capture_id: str):
+    item = ANALYSIS_CACHE.pop(capture_id, None)
+    if not item:
+        return {"ok": True, "deleted": False}
+    path = item.get("overlay_path")
+    try:
+        if path and os.path.exists(path):
+            os.remove(path)
+    except Exception:
+        pass
+    return {"ok": True, "deleted": True}
 
 
 # ---------------------------
@@ -425,6 +579,7 @@ if FRONTEND_DIST.exists():
             "captures", "capture", "live", "analyze",
             "zip", "actions",
             "analysis",
+            "video", "videos",
         )):
             raise HTTPException(status_code=404, detail="Not found")
         return FileResponse(str(FRONTEND_DIST / "index.html"))

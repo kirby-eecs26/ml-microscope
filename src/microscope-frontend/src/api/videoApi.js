@@ -34,8 +34,8 @@ export async function analyzeVideo(videoId, payload = {}) {
 }
 
 export async function saveVideoToGallery(videoId, payload) {
-  const res = await fetch(`${BASE}/video/save/${encodeURIComponent(videoId)}`, {
-    method: "PATCH",
+  const res = await fetch(`${BASE}/video/${encodeURIComponent(videoId)}/save`, {
+    method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
@@ -55,6 +55,30 @@ export async function getVideoStatus(recordingId) {
   const res = await fetch(`${BASE}/video/${encodeURIComponent(recordingId)}/status`);
   return asJsonOrThrow(res);
 }
+
+export async function listVideos() {
+  const res = await fetch(`${BASE}/videos`);
+  return asJsonOrThrow(res);
+}
+
+export async function deleteTempVideo(videoId) {
+  const res = await fetch(`${BASE}/video/${encodeURIComponent(videoId)}`, {
+    method: "DELETE",
+  });
+  return asJsonOrThrow(res);
+}
+
+export async function deleteVideo(id) {
+  const base = import.meta.env.VITE_API_BASE || "";
+  const res = await fetch(`${base}/video/${encodeURIComponent(id)}`, { method: "DELETE" });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Video delete failed (${res.status})`);
+  }
+  return res.json().catch(() => ({ ok: true }));
+}
+
+
 
 /**
  * Convenience URL for <video :src="..."> or a download link.

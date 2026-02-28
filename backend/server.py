@@ -11,9 +11,11 @@ import requests
 import cv2
 import os
 import uuid
+import numpy as np
 import threading
 from pathlib import Path
 import subprocess
+from fastapi import HTTPException
 from libraries.GlobalVariables import (API_BASE, POS_X_BOUND, POS_Z_BOUND, NEG_Z_BOUND,
                                        MAX_DURATION_SEC)
 
@@ -299,8 +301,8 @@ def _transcode_h264(src_path: str, dst_path: str):
     subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
 def start_video_recording(fpm: int, max_frames: int = 300, max_h: int = 1080) -> dict:
-    if fpm not in (30, 60):
-        raise ValueError("Only 30 or 60 FPM allowed")
+    if fpm not in (30, 60, 1500):
+        raise ValueError("Only 30, 60, or 1500 FPM allowed")
 
     recording_id = uuid.uuid4().hex
     out_path = VIDEO_DIR / f"{recording_id}_raw.mp4"
@@ -344,9 +346,11 @@ def stop_video_recording(recording_id: str) -> dict:
 
 def get_video_path(recording_id: str) -> str:
     rec = RECORDINGS.get(recording_id)
+    print("get_video_path lookup:", recording_id)
+    print("known ids:", list(RECORDINGS.keys()))
     if not rec:
         raise KeyError("Unknown recording id")
-    return rec["path"]
+    return rec.get("path") or rec.get("path_final") or rec.get("path_raw")
 
 
 def get_video_status(recording_id: str) -> dict:
@@ -362,6 +366,44 @@ def delete_capture(capture_id: str) -> bool:
     if r.status_code in (200, 204):
         return True
     raise RuntimeError(f"Delete failed: {r.status_code} {r.text}")
+
+def delete_video_recording(recording_id: str) -> bool:
+    rec = RECORDINGS.get(recording_id)
+    if not rec:
+        raw = VIDEO_DIR / f"{recording_id}_raw.mp4"
+        fin = VIDEO_DIR / f"{recording_id}.mp4"
+        removed = False
+        for p in (raw, fin):
+            try:
+                if p.exists():
+                    p.unlink()
+                    removed = True
+            except Exception:
+                pass
+        return removed
+    rec["stop"].set()
+    t = rec.get("thread")
+    if t:
+        t.join(timeout=2.0)
+    paths = []
+    for k in ("path_raw", "path_final", "path"):
+        v = rec.get(k)
+        if v:
+            paths.append(Path(v))
+    removed = False
+    for p in paths:
+        try:
+            if p.exists():
+                p.unlink()
+                removed = True
+        except Exception:
+            pass
+    try:
+        del RECORDINGS[recording_id]
+    except Exception:
+        pass
+
+    return removed
 
 # if __name__ == "__main__":
 #     listCaptures()

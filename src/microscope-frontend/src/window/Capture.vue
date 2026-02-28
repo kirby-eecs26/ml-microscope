@@ -13,7 +13,7 @@
               FULL
               </button>
               <button class="segBtn" :class="{ active: imageResolution === 'RAW' }" @click="imageResolution = 'RAW'">
-              RAW
+              LOW
               </button>
             </div>
           </div>
@@ -39,28 +39,72 @@
               <button class="segBtn" :class="{ active: videoResolution === 'FULL' }" @click="videoResolution = 'FULL'">
               FULL</button>
               <button  class="segBtn" :class="{ active: videoResolution === 'RAW' }" @click="videoResolution = 'RAW'">
-              RAW</button>
+              LOW</button>
             </div>
           </div>
 
           <div class="block">
             <div class="label">Frames-per-Minute (FPM)</div>
+
             <div class="row2">
-              <button class="pill" :class="{ active: frameRate === 60 }" @click="setPreset(60)">
-              60</button>
-              <button class="pill" :class="{ active: frameRate === 30 }" @click="setPreset(30)">
-              30</button>
+              <button
+                class="pill"
+                :class="{ active: !motionClipOn && frameRate === 60 }"
+                @click="setPreset(60)"
+                :disabled="recording"
+                type="button"
+              >
+                60
+              </button>
+
+              <button
+                class="pill"
+                :class="{ active: !motionClipOn && frameRate === 30 }"
+                @click="setPreset(30)"
+                :disabled="recording"
+                type="button"
+              >
+                30
+              </button>
+            </div>
+
+            <!-- Motion clip preset -->
+            <div class="row1" style="margin-top: 10px;">
+              <button
+                class="pill pillWide"
+                :class="{ active: motionClipOn }"
+                @click="toggleMotionClip"
+                :disabled="recording"
+                type="button"
+                title="Records 5 seconds at 25 fps and stops automatically"
+              >
+                Motion Clip • 25 FPS • 5s
+              </button>
+            </div>
+
+            <div v-if="motionClipOn" class="statusTextSmall">
+              Auto-stops after 5 seconds (125 frames)
             </div>
           </div>
-
 					<button v-if="!recording" class="primaryBtn" @click="startRecording" :disabled="videoBusy">
-						<span v-if="videoBusy && videoBusyMode === 'start'" class="spinner"></span>
-						{{ videoBusy && videoBusyMode === 'start' ? 'STARTING...' : 'START VIDEO' }}
-					</button>
-					<button v-else class="primaryBtn stopBtn" @click="stopRecording" :disabled="videoBusy">
-						<span v-if="videoBusy && videoBusyMode === 'stop'" class="spinner"></span>
-						{{ videoBusy && videoBusyMode === 'stop' ? 'STOPPING...' : 'STOP VIDEO' }}
-					</button>
+            <span v-if="videoBusy && videoBusyMode === 'start'" class="spinner"></span>
+            {{ videoBusy && videoBusyMode === 'start' ? 'STARTING...' : 'START VIDEO' }}
+          </button>
+
+          <!-- If motion clip is on, don't show manual stop -->
+          <button
+            v-else-if="recording && !motionClipOn"
+            class="primaryBtn stopBtn"
+            @click="stopRecording"
+            :disabled="videoBusy"
+          >
+            <span v-if="videoBusy && videoBusyMode === 'stop'" class="spinner"></span>
+            {{ videoBusy && videoBusyMode === 'stop' ? 'STOPPING...' : 'STOP VIDEO' }}
+          </button>
+
+          <div v-else class="statusTextSmall">
+            Recording motion clip… auto-stopping
+          </div>
 					<div v-if="videoStatus" class="statusTextSmall">{{ videoStatus }}</div>
 				</div>
 			</div>
@@ -249,12 +293,17 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import CameraPreview from "../components/CameraPreview.vue";
 import { captureImage, deleteCapture } from "../api/imageApi";
-import { startVideo, stopVideo, analyzeVideo, saveVideoToGallery as saveVideo } from "../api/videoApi";
-
+import {
+  startVideo,
+  stopVideo,
+  analyzeVideo,
+  saveVideoToGallery as saveVideo,
+  deleteTempVideo
+} from "../api/videoApi";
 const router = useRouter();
 
 // ----- Image state -----
@@ -295,11 +344,33 @@ const videoAnnoKey = ref("");
 const videoAnnoValue = ref("");
 const videoTagInput = ref("");
 const cellCount = ref(null);
+const videoSaved = ref(false);
+
+const motionClipOn = ref(false);
+const motionStopTimer = ref(null);
+
+// constants for the motion clip preset
+const MOTION_FPS = 25;
+const MOTION_SECONDS = 5;
+const MOTION_FPM = MOTION_FPS * 60;          // 1500
+const MOTION_FRAMES = MOTION_FPS * MOTION_SECONDS; // 125
 
 // ----- Helper functions (video) -----
 function setPreset(n) {
+  motionClipOn.value = false;
   frameRate.value = n;
 }
+
+function toggleMotionClip() {
+  motionClipOn.value = !motionClipOn.value;
+  if (motionClipOn.value) {
+  }
+}
+
+onUnmounted(() => {
+  if (motionStopTimer.value) clearTimeout(motionStopTimer.value);
+  motionStopTimer.value = null;
+});
 
 // ----- Image functions -----
 async function handleCaptureImage() {
@@ -420,18 +491,29 @@ async function startRecording() {
     videoBusy.value = true;
     videoBusyMode.value = "start";
     videoStatus.value = "Starting recording...";
-
-    const isRaw = videoResolution.value === "RAW";
+    const isMotion = motionClipOn.value;
     const payload = {
-      fpm: frameRate.value,
-      max_frames: 300,
+      fpm: isMotion ? MOTION_FPM : frameRate.value,
+      max_frames: isMotion ? MOTION_FRAMES : 300,
       max_h: videoResolution.value === "RAW" ? 624 : 1080,
     };
-
     const result = await startVideo(payload);
-    recordingId.value = result?.id ?? result?.recording?.id ?? null;
+    recordingId.value =
+      result?.recording_id ??
+      result?.id ??
+      result?.recording?.id ??
+      null;
+    if (!recordingId.value) {
+      throw new Error("Start succeeded but no recording id returned from backend");
+    }
     recording.value = true;
-    videoStatus.value = "Recording...";
+    videoStatus.value = isMotion ? "Recording motion clip..." : "Recording...";
+    if (isMotion) {
+      if (motionStopTimer.value) clearTimeout(motionStopTimer.value);
+      motionStopTimer.value = setTimeout(() => {
+        if (recording.value && recordingId.value) stopRecording(true);
+      }, MOTION_SECONDS * 1000);
+    }
   } catch (e) {
     console.error(e);
     videoStatus.value = `Start failed: ${e?.message ?? e}`;
@@ -441,12 +523,14 @@ async function startRecording() {
   }
 }
 
-async function stopRecording() {
+async function stopRecording(isAuto = false) {
   try {
+    if (!recordingId.value) return;
+    if (motionStopTimer.value) clearTimeout(motionStopTimer.value);
+    motionStopTimer.value = null;
     videoBusy.value = true;
     videoBusyMode.value = "stop";
-    videoStatus.value = "Stopping recording...";
-
+    videoStatus.value = isAuto ? "Auto-stopping motion clip..." : "Stopping recording...";
     const result = await stopVideo(recordingId.value);
     recordedVideoId.value =
       result?.id ??
@@ -459,15 +543,13 @@ async function stopRecording() {
     }
     recordingId.value = null;
     recording.value = false;
-
     const preview = result?.preview_url;
     if (preview) {
       stopPreviewUrl.value = preview;
     } else {
       const base = import.meta.env.VITE_API_BASE || "";
-      stopPreviewUrl.value = `${base}/video/${encodeURIComponent(recordedVideoId.value)}/download?t=${Date.now()}`
+      stopPreviewUrl.value = `${base}/video/${encodeURIComponent(recordedVideoId.value)}/download?t=${Date.now()}`;
     }
-
     openStopModal();
     videoStatus.value = "Stopped.";
   } catch (e) {
@@ -482,11 +564,23 @@ async function stopRecording() {
 function openStopModal() {
   stopModalOpen.value = true;
   cellCount.value = null;
+  videoSaved.value = false;
 }
 
-function closeStopModal() {
+async function closeStopModal() {
   stopModalOpen.value = false;
   stopPreviewUrl.value = "";
+  const vid = recordedVideoId.value;
+  if (vid && !videoSaved.value) {
+    try {
+      await deleteTempVideo(vid);
+    } catch (e) {
+      console.warn("Failed to delete temp video:", e);
+    }
+  }
+
+  recordedVideoId.value = null;
+  videoSaved.value = false;
 }
 
 function addVideoAnnotation() {
@@ -544,6 +638,7 @@ async function saveVideoToGallery() {
     if (cellCount.value !== null) payload.analysis = { cell_count: cellCount.value };
 
     await saveVideo(recordedVideoId.value, payload);
+    videoSaved.value = true
     stopModalOpen.value = false;
     videoStatus.value = "Saved.";
   } catch (e) {
@@ -664,6 +759,16 @@ async function saveVideoToGallery() {
   background: #1f4b7a;
   color: #fff;
   border-color: #1f4b7a;
+}
+
+.row1 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.pillWide {
+  width: 100%;
 }
 
 .miniInput {

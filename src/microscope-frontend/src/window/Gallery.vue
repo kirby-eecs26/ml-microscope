@@ -31,7 +31,17 @@
           :class="{ selected: selectedId === img.id }"
         >
           <div class="thumb" @click="openPreview(img)">
-            <img :src="img.thumbUrl || img.url || '/cell.jpg'" alt="thumbnail" />
+            <img
+              v-if="img.type !== 'video'"
+              :src="img.thumbUrl || img.url || '/cell.jpg'"
+              alt="thumbnail"
+            />
+            <div v-else class="videoThumb">
+              <video :src="img.url" muted playsinline preload="metadata"></video>
+              <div class="playOverlay">
+                <span class="material-symbols-outlined">play_circle</span>
+              </div>
+            </div>
           </div>
 
           <div class="meta" @click="openDetails(img)">
@@ -172,9 +182,12 @@
           <!-- LEFT: image + toggle -->
           <div class="analysisLeft">
             <div class="viewerHeader">
-              <div class="viewerLabel">Image Preview</div>
+              <div class="viewerLabel">
+                {{ analysisItem?.type === "video" ? "Video Preview" : "Image Preview" }}
+              </div>
 
               <button
+                v-if="analysisItem?.type !== 'video'"
                 class="toggleBtn"
                 :disabled="!analysisResult?.overlayImageUrl"
                 @click="overlayOn = !overlayOn"
@@ -184,15 +197,32 @@
             </div>
 
             <div class="viewerFrame">
+              <!-- IMAGE -->
               <img
+                v-if="analysisItem?.type !== 'video'"
                 class="viewerImg"
-                :src="overlayOn && analysisResult?.overlayImageUrl ? analysisResult.overlayImageUrl : (analysisItem?.url || analysisItem?.thumbUrl || '/cell.jpg')"
+                :src="overlayOn && analysisResult?.overlayImageUrl
+                  ? analysisResult.overlayImageUrl
+                  : (analysisItem?.url || analysisItem?.thumbUrl || '/cell.jpg')"
                 alt="analysis preview"
               />
 
+              <!-- VIDEO -->
+              <video
+                v-else
+                class="viewerImg"
+                :src="analysisItem?.url"
+                controls
+                playsinline
+              ></video>
+
               <div v-if="analysisLoading" class="viewerOverlay">Analyzing...</div>
               <div v-else-if="analysisError" class="viewerOverlay error">{{ analysisError }}</div>
-              <div v-else-if="overlayOn && !analysisResult?.overlayImageUrl" class="viewerOverlay warn">
+
+              <div
+                v-else-if="analysisItem?.type !== 'video' && overlayOn && !analysisResult?.overlayImageUrl"
+                class="viewerOverlay warn"
+              >
                 Overlay not available yet
               </div>
             </div>
@@ -202,10 +232,24 @@
           <div class="analysisRight">
             <div class="resultsTitle">Results:</div>
 
-            <div class="countBlock">
+            <!-- IMAGE RESULTS -->
+            <div v-if="analysisItem?.type !== 'video'" class="countBlock">
               <div class="countLabel">Blob Count</div>
               <div class="countValue">
                 {{ analysisResult?.blobCount ?? "—" }}
+              </div>
+            </div>
+            <!-- VIDEO RESULTS -->
+            <div v-else class="countBlock">
+              <div class="countLabel">Motility</div>
+              <div class="countValue" style="font-size: 34px;">
+                {{ analysisResult?.label ?? "—" }}
+              </div>
+              <div style="margin-top: 10px; font-size: 12px; opacity: 0.95;">
+                <div><b>Motility Ratio:</b> {{ analysisResult?.motility_ratio ?? "—" }}</div>
+                <div><b>Motion Score:</b> {{ analysisResult?.motion_score ?? "—" }}</div>
+                <div><b>Avg Speed (px/s):</b> {{ analysisResult?.avg_speed_px_per_s ?? "—" }}</div>
+                <div><b>Tracks:</b> {{ analysisResult?.tracks ?? "—" }}</div>
               </div>
             </div>
 
@@ -247,11 +291,22 @@
     <div v-if="previewOpen" class="imgBackdrop" @click="closePreview">
       <div class="imgModal" @click.stop>
         <button class="imgClose" @click="closePreview">×</button>
+
         <img
+          v-if="previewItem?.type !== 'video'"
           class="imgFull"
           :src="previewItem?.url || previewItem?.thumbUrl || '/cell.jpg'"
           alt="full"
         />
+
+        <video
+          v-else
+          class="imgFull"
+          :src="previewItem?.url"
+          controls
+          autoplay
+        ></video>
+
         <div class="imgCaption">
           <div><b>{{ previewItem?.name }}</b></div>
           <div class="muted">{{ formatDate(previewItem?.datetime) }}</div>
@@ -364,6 +419,7 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import { listCaptures, deleteCapture, analyzeCapture, deleteTag } from "../api/imageApi";
+import { listVideos, deleteVideo, analyzeVideo } from "../api/videoApi";
 
 const gallery = ref([]); // will be loaded from backend
 const query = ref("");
@@ -384,7 +440,6 @@ const analysisItem = ref(null);
 const analysisLoading = ref(false);
 const analysisError = ref("");
 const analysisResult = ref(null); // { blobCount, overlayImageUrl, maskImageUrl }
-const showOverlay = ref(true);
 const overlayOn = ref(false);
 const savingAnalysis = ref(false);
 const saveOk = ref(false);
@@ -420,6 +475,10 @@ function formatDate(d) {
   return d ? String(d).replace("T", " ").slice(0, 19) : "";
 }
 
+function isVideo(item) {
+  return item?.type === "video";
+}
+
 /**
  * Normalize whatever your backend returns into:
  * { id, name, datetime, url, thumbUrl }
@@ -427,7 +486,6 @@ function formatDate(d) {
 function normalizeCaptures(payload) {
   const items = payload?.captures ?? payload ?? [];
   const base = import.meta.env.VITE_API_BASE || "";
-
   return items.map((c) => {
     const id = c.id;
     return {
@@ -442,9 +500,26 @@ function normalizeCaptures(payload) {
   });
 }
 
-async function refreshCaptures() {
-  const data = await listCaptures();
-  gallery.value = normalizeCaptures(data);
+function normalizeVideos(payload) {
+  const items = payload?.videos ?? payload ?? [];
+  const base = import.meta.env.VITE_API_BASE || "";
+  return items.map((v) => ({
+    id: v.id,
+    type: "video",
+    name: v.name ?? "video",
+    datetime: v.time ?? "",
+    url: `${base}/video/${encodeURIComponent(v.id)}/download`,
+    thumbUrl: null,
+    tags: v.tags ?? [],
+    raw: v,
+  }));
+}
+
+async function refreshAll() {
+  const [caps, vids] = await Promise.all([listCaptures(), listVideos()]);
+  const images = normalizeCaptures(caps).map(x => ({ ...x, type: "image" }));
+  const videos = normalizeVideos(vids);
+  gallery.value = [...videos, ...images];
 }
 
 function getNotes(img) {
@@ -549,7 +624,7 @@ async function confirmAddTag() {
 
 onMounted(async () => {
   try {
-    await refreshCaptures();
+    await refreshAll();
   } catch (e) {
     console.error(e);
   }
@@ -583,7 +658,10 @@ function closeDetails() {
 async function downloadOne(img) {
   try {
     const base = import.meta.env.VITE_API_BASE || "";
-    const url = `${base}/captures/${encodeURIComponent(img.id)}/image`;
+    const url =
+      img.type === "video"
+        ? `${base}/video/${encodeURIComponent(img.id)}/download`
+        : `${base}/captures/${encodeURIComponent(img.id)}/image`;
 
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Download failed: ${res.status} ${res.statusText}`);
@@ -642,11 +720,12 @@ async function confirmDelete() {
   deleting.value = true;
   deleteError.value = "";
   try {
-    await deleteCapture(confirmItem.value.id);
-
-    // remove locally
+    if (confirmItem.value.type === "video") {
+      await deleteVideo(confirmItem.value.id);
+    } else {
+      await deleteCapture(confirmItem.value.id);
+    }
     gallery.value = gallery.value.filter((x) => x.id !== confirmItem.value.id);
-
     closeConfirm();
   } catch (e) {
     deleteError.value = String(e?.message || e);
@@ -729,28 +808,40 @@ async function downloadZipById(id) {
 }
 
 /** Analyze */
-async function runAnalysis(img) {
-  analysisItem.value = img;
+async function runAnalysis(item) {
+  analysisItem.value = item;
   analysisOpen.value = true;
   analysisLoading.value = true;
   analysisError.value = "";
   analysisResult.value = null;
   overlayOn.value = false;
-
   try {
-    const res = await analyzeCapture(img.id);
-
     const base = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
-    const overlayUrlRaw = res.overlayImageUrl ?? null;
-
-    const overlayUrl = overlayUrlRaw
-      ? (overlayUrlRaw.startsWith("http") ? overlayUrlRaw : `${base}${overlayUrlRaw}`)
-      : null;
-
-    analysisResult.value = {
-      blobCount: res.blobCount ?? 0,
-      overlayImageUrl: overlayUrl,
-    };
+    if (!isVideo(item)) {
+      const res = await analyzeCapture(item.id);
+      const overlayUrlRaw = res.overlayImageUrl ?? null;
+      const overlayUrl = overlayUrlRaw
+        ? (overlayUrlRaw.startsWith("http") ? overlayUrlRaw : `${base}${overlayUrlRaw}`)
+        : null;
+      analysisResult.value = {
+        kind: "image",
+        blobCount: res.blobCount ?? 0,
+        overlayImageUrl: overlayUrl,
+      };
+    } else {
+      const res = await analyzeVideo(item.id, { type: "motion_tracking", mode: "ml_kmeans" });
+      const a = res.analysis || {};
+      analysisResult.value = {
+        kind: "video",
+        label: a.label ?? "—",
+        motion_score: a.motion_score ?? 0,
+        motility_ratio: a.motility_ratio ?? 0,
+        avg_speed_px_per_s: a.avg_speed_px_per_s ?? 0,
+        tracks: a.tracks ?? 0,
+        ml: a.ml ?? null,
+        debug: a.debug ?? null,
+      };
+    }
   } catch (e) {
     analysisError.value = String(e?.message || e);
   } finally {
@@ -758,54 +849,67 @@ async function runAnalysis(img) {
   }
 }
 
-const analysisImageSrc = computed(() => {
-  const base = import.meta.env.VITE_API_BASE || "";
-  const original = analysisItem.value?.url || null;
-  const overlay = analysisResult.value?.overlayImageUrl
-    ? `${base}${analysisResult.value.overlayImageUrl}`
-    : null;
-
-  if (showOverlay.value && overlay) return overlay;
-  return original;
-});
-
 async function saveAnalysis() {
   if (!analysisItem.value || !analysisResult.value) return;
+
   savingAnalysis.value = true;
   saveOk.value = false;
   saveMsg.value = "";
+
   try {
     const base = import.meta.env.VITE_API_BASE || "";
-    const existingAnn = analysisItem.value?.raw?.annotations || {};
-    const nextAnn = {
-      ...existingAnn,
-      ML_BlobCount: Number(analysisResult.value.blobCount ?? 0),
-      ML_AnalyzedAt: new Date().toISOString(),
-    };
-    const res = await fetch(
-      `${base}/captures/${encodeURIComponent(analysisItem.value.id)}/metadata`,
-      {
+
+    if (analysisItem.value.type !== "video") {
+      const existingAnn = analysisItem.value?.raw?.annotations || {};
+      const nextAnn = {
+        ...existingAnn,
+        ML_BlobCount: Number(analysisResult.value.blobCount ?? 0),
+        ML_AnalyzedAt: new Date().toISOString(),
+      };
+      const res = await fetch(`${base}/captures/${encodeURIComponent(analysisItem.value.id)}/metadata`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          annotations: nextAnn,
-        }),
+        body: JSON.stringify({ annotations: nextAnn }),
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(`Save analysis failed: ${res.status} ${txt}`);
       }
-    );
-    if (!res.ok) {
-      const txt = await res.text();
-      throw new Error(`Save analysis failed: ${res.status} ${txt}`);
+    } else {
+      const payload = {
+        analysis: {
+          type: "motion_tracking",
+          label: analysisResult.value.label,
+          motility_ratio: analysisResult.value.motility_ratio,
+          motion_score: analysisResult.value.motion_score,
+          avg_speed_px_per_s: analysisResult.value.avg_speed_px_per_s,
+          tracks: analysisResult.value.tracks,
+          ml: analysisResult.value.ml ?? null,
+          analyzed_at: new Date().toISOString(),
+        },
+      };
+      const res = await fetch(`${base}/video/${encodeURIComponent(analysisItem.value.id)}/analysis`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(`Save analysis failed: ${res.status} ${txt}`);
+      }
     }
+
     saveOk.value = true;
     saveMsg.value = "Saved";
-    await refreshCaptures();
+
+    await refreshAll();
     const updated = gallery.value.find((x) => x.id === analysisItem.value.id);
     if (updated) analysisItem.value = updated;
+
     setTimeout(() => {
       saveOk.value = false;
       saveMsg.value = "";
     }, 1500);
-
   } catch (e) {
     saveOk.value = false;
     saveMsg.value = String(e?.message || e);
@@ -815,13 +919,23 @@ async function saveAnalysis() {
   }
 }
 
-function closeAnalysisModal() {
+async function closeAnalysisModal() {
+  try {
+    const id = analysisItem.value?.id;
+    if (id) {
+      const base = import.meta.env.VITE_API_BASE || "";
+      fetch(`${base}/analysis/${encodeURIComponent(id)}`, { method: "DELETE" });
+    }
+  } catch (e) {
+  }
+
   analysisOpen.value = false;
   analysisItem.value = null;
   analysisResult.value = null;
   analysisError.value = "";
   analysisLoading.value = false;
 }
+
 </script>
 
 
@@ -1697,6 +1811,15 @@ function closeAnalysisModal() {
   border-top-color: #1f4b7a;
   animation: spin 0.8s linear infinite;
 }
+
+.videoThumb { position: relative; width: 100%; height: 100%; }
+.videoThumb video { width: 100%; height: 100%; object-fit: cover; }
+.playOverlay {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  background: rgba(0,0,0,0.25);
+}
+.playOverlay .material-symbols-outlined { font-size: 44px; color: #fff; }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
