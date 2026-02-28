@@ -1,9 +1,6 @@
 #server.py
 #Connect Python to API
 
-#WARNING: a lot in here is not correct or left with filler values as substitutions until the correct
-        #extentions/values/proper returns are fleshed out until then DO NOT RUN WILL NOT COMPILE
-
 import time
 import math
 import backend.error
@@ -22,12 +19,6 @@ from libraries.GlobalVariables import (API_BASE, POS_X_BOUND, POS_Z_BOUND, NEG_Z
 VIDEO_DIR = Path(__file__).resolve().parent / "video_outputs"
 VIDEO_DIR.mkdir(parents=True, exist_ok=True)
 RECORDINGS: dict[str, dict] = {}
-
-#Helper Functions
-
-#for arrow keys
-
-
 
 def apiHealth(timeout=2.0) -> bool:
     """
@@ -81,29 +72,6 @@ def get_position(timeout=8.0) -> dict:
     pos["x"] = -pos["x"]
     return pos
 
-# def check_step(cords: dict):
-# """plan: directions moving add it to temp cord check in or out of bounds return true if in bounds. false if out of bounds"""
-#     if
-
-
-# def moveArrows():
-#     """
-#     moving postion with arrow keys on step at a time
-#     checks step will not be out of bounds the sends movement call to teh api for execution
-#     if error raise and catch
-#     todo: logging of errors
-#     """
-#     print("moveArrows")
-#     try:
-#         if :
-#             payload = {
-#                 "x": new_cords.x,
-#                 "y": new_cords.y,
-#                 "z": new_cords.z,
-#                 "absolute": False
-#             }
-#
-#
 
 def moveButton(x: int, y: int, z: int, timeout = 60.0):
     """
@@ -453,6 +421,11 @@ def auto_gain_shutter_speed(timeout=2.0):
 
 
 def auto_white_balance(timeout=2.0):
+    '''
+
+    :param timeout:
+    :return:
+    '''
     try:
         r = requests.post(f"{API_BASE}api/v2/extensions/org.openflexure.calibration.picamera/auto_white_balance_from_raw", timeout=timeout)
         r.raise_for_status()
@@ -463,6 +436,11 @@ def auto_white_balance(timeout=2.0):
 
 
 def auto_flat_field_correction(timeout=2.0):
+    '''
+
+    :param timeout:
+    :return:
+    '''
     try:
         r = requests.post(f"{API_BASE}api/v2/extensions/org.openflexure.calibration.picamera/auto_lens_shading_table", timeout=timeout)
         r.raise_for_status()
@@ -473,6 +451,11 @@ def auto_flat_field_correction(timeout=2.0):
 
 
 def disable_flat_field_correction(timeout=2.0):
+    '''
+
+    :param timeout:
+    :return:
+    '''
     try:
         r = requests.post(f"{API_BASE}api/v2/extensions/org.openflexure.calibration.picamera/flatten_lens_shading_table", timeout=timeout)
         r.raise_for_status()
@@ -484,6 +467,11 @@ def disable_flat_field_correction(timeout=2.0):
 
 # Camera/stage mapping
 def autocalibrate_using_camera(timeout=2.0):
+    '''
+
+    :param timeout:
+    :return:
+    '''
     try:
         r = requests.post(f"{API_BASE}api/v2/extensions/org.openflexure.camera-stage-mapping/calibrate_xy", timeout=timeout)
         r.raise_for_status()
