@@ -224,3 +224,9 @@ src/microscope-frontend/dist/
 src/microscope-frontend/.env*
 tests/unit/ml/*.png
 tests/unit/ml/*.jpeg.DS_Store
+
+backend/analysis_outputs/
+backend/video_outputs/
+
+vendor/ffmpeg/
+*.exe
