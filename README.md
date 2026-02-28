@@ -15,11 +15,16 @@ Microscope system that captures cell images and uses AI/ML image analysis to aut
 
 *TO-DO: Front-end and backend add which programs, libraries, and other resources used to build this app. You can omit any default libraries (e.g., Python ships with the 'os' library already installed).*
 
-Backend Libraries: opencv-python-headless, requests, pydantic, csv, pathlib, numpy
+Backend Libraries:
+- OpenCV: Segmentation based ML/AI model that detects and categorizes shapes in images for counting cells vs other objects in the sample.
+- Requests: Library to connect and interact with OpenFlexure server API and custom exceptions.
+- Pydantic: 
+- Csv: Reading and writing csv files.
+- Pathlib: access directories for downloading and editing files and images.
 
-- 
-
-Front-End Libraries: Fastapi, uvicorn[standard]
+Front-End Libraries:
+- Fastapi: Library to connect and interact with UI
+- Uvicorn[standard]: 
 
 
 
@@ -73,7 +78,65 @@ ml-microscope/
 
 ## Setup and Installation
 
+First build the installer then install the full desktop application.
+
 *TO-DO: Frontend and back-end provide simple instructions for how a visitor to this repo can download and install our app.*
+
+
+### Step 1 Building Vue Dist:
+
+In terminal move to directory
+```text
+C:...\ml-microscope\src\microscope-frontend
+```
+Then run command
+```text
+npm run build
+```
+
+### Step 2 Build Backend EXE
+
+Move back to root
+```text
+C:...\ml-microscope
+```
+Run command
+```text
+py -m PyInstaller --clean --noconfirm --onedir --name MicroscopeBackend backend/client.py
+```
+
+### Step 3 Copy Vue dist into Backend EXE Folder
+
+Run command
+```text
+xcopy /E /I /Y src\microscope-frontend\dist dist\MicroscopeBackend\frontend_dist
+```
+If you are rebuilding the installer instead run the commands:
+```text
+rmdir /S /Q dist\MicroscopeBackend\frontend_dist 2>$null
+xcopy /E /I /Y src\microscope-frontend\dist dist\MicroscopeBackend\frontend_dist
+```
+rmdir command might error, this is fine.
+
+
+### Step 4 Build Electron Installer
+
+Move to desktop-app dir
+```text
+C:...\ml-microscope\desktop-app
+```
+Then run command
+```text
+npm run dist
+```
+
+### Step 5 Run Installer
+
+Find the copied repo in user files or where it was saved. The Cellular Imaging Studio Setup {v_number}.exe installer will be in:
+```text
+C:...\ml-microscope\desktop-app\release-build
+```
+Run Cellular Imaging Studio Setup {v_number}.exe
 
 ## Application Instructions
 
