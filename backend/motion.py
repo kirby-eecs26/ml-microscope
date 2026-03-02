@@ -6,6 +6,10 @@ from typing import Any, Dict, Optional, Tuple, List
 
 import cv2
 import numpy as np
+from pathlib import Path
+import subprocess
+import os
+import cv2
 
 
 @dataclass
@@ -30,7 +34,7 @@ class MotionConfig:
     min_blob_area: int = 60
 
     # Convert motion_score -> label using this threshold (baseline)
-    label_threshold: float = 0.02  # default: 2% of pixels moving on average
+    label_threshold: float = 0.02
 
     # A "motile object" is a blob whose centroid moves more than this between frames (in px)
     # NOTE: This is only a proxy without real tracking.
@@ -96,11 +100,11 @@ def _nearest_neighbor_displacements(
     if not prev_pts or not curr_pts:
         return []
 
-    prev = np.array(prev_pts, dtype=np.float32)  # (N,2)
-    curr = np.array(curr_pts, dtype=np.float32)  # (M,2)
+    prev = np.array(prev_pts, dtype=np.float32)
+    curr = np.array(curr_pts, dtype=np.float32)
 
-    dists = np.linalg.norm(prev[:, None, :] - curr[None, :, :], axis=2)  # (N,M)
-    nn = dists.min(axis=0)  # (M,)
+    dists = np.linalg.norm(prev[:, None, :] - curr[None, :, :], axis=2)
+    nn = dists.min(axis=0)
     return nn.tolist()
 
 
@@ -122,9 +126,8 @@ def classify_motion_kmeans(
       so no training data is required.
     - Then classify the observed feature vector by cluster.
     """
-    # If sklearn isn't installed, return a graceful fallback.
     try:
-        from sklearn.cluster import KMeans  # type: ignore
+        from sklearn.cluster import KMeans
     except Exception as e:
         return {
             "method": "kmeans",
@@ -133,20 +136,16 @@ def classify_motion_kmeans(
             "label": None,
         }
 
-    # Feature vector
     X = np.array([[motion_score, avg_speed_px_per_s, float(tracks)]], dtype=np.float32)
-
-    # Synthetic "training" points that roughly cover expected ranges.
-    # (motion_score ~ 0..0.15), (avg_speed ~ 0..8 px/s), (tracks ~ 0..50)
     synth = np.array(
         [
-            [0.000, 0.05, 0.0],   # very static
+            [0.000, 0.05, 0.0],
             [0.004, 0.20, 1.0],
-            [0.010, 0.60, 5.0],   # low motion
-            [0.020, 1.20, 10.0],  # borderline
-            [0.040, 2.80, 18.0],  # motile
+            [0.010, 0.60, 5.0],
+            [0.020, 1.20, 10.0],
+            [0.040, 2.80, 18.0],
             [0.070, 4.50, 28.0],
-            [0.110, 6.50, 40.0],  # very motile
+            [0.110, 6.50, 40.0],
         ],
         dtype=np.float32,
     )
@@ -157,15 +156,10 @@ def classify_motion_kmeans(
     pred = int(km.predict(X)[0])
     centers = km.cluster_centers_
 
-    # Pick which cluster corresponds to "motile":
-    # we assume the "motile" cluster has higher motion_score center.
     motile_cluster = int(np.argmax(centers[:, 0]))
     label = "MOTILE" if pred == motile_cluster else "STATIC"
-
-    # Confidence-ish score: distance ratio to the two centers
     d0 = float(np.linalg.norm(X[0] - centers[0]))
     d1 = float(np.linalg.norm(X[0] - centers[1]))
-    # smaller distance => higher confidence; clamp into [0,1]
     denom = (d0 + d1) if (d0 + d1) > 1e-9 else 1.0
     confidence = 1.0 - (min(d0, d1) / denom)
 
@@ -189,7 +183,7 @@ def classify_motion_kmeans(
 def analyze_motion(
     video_path: str,
     cfg: Optional[MotionConfig] = None,
-    mode: str = "cv",  # "cv" or "ml_kmeans"
+    mode: str = "cv",
 ) -> Dict[str, Any]:
     """
     Analyze video motion and return an interpretable summary.
@@ -197,11 +191,8 @@ def analyze_motion(
     CV baseline:
     - motion_score: avg fraction of pixels classified as moving
     - motility_ratio: fraction of blobs whose centroid displacement is above a threshold
-      (proxy; not full tracking)
     - avg_speed_px_per_s: based on centroid displacement per frame * sample_fps
-      (proxy; not full tracking)
     - tracks: approximate number of moving blobs detected per frame (avg)
-
     ML mode ("ml_kmeans"):
     - Uses k-means classification on the computed features.
     """
@@ -272,16 +263,12 @@ def analyze_motion(
         prev_centroids = centroids
         prev_g = curr_g
         frame_idx += 1
-
     cap.release()
-
     motion_mean = float(np.mean(motion_scores)) if motion_scores else 0.0
     tracks_mean = float(np.mean(blob_counts)) if blob_counts else 0.0
     motility_ratio = (motile_blob_hits / motile_blob_total) if motile_blob_total > 0 else 0.0
     avg_disp = float(np.mean(disp_accum)) if disp_accum else 0.0
     avg_speed = avg_disp * cfg.sample_fps
-
-    # CV baseline label
     cv_label = "MOTILE" if motion_mean >= cfg.label_threshold else "STATIC"
 
     analysis: Dict[str, Any] = {
@@ -290,7 +277,7 @@ def analyze_motion(
         "motion_score": round(motion_mean, 4),
         "avg_speed_px_per_s": round(avg_speed, 3),
         "tracks": int(round(tracks_mean)),
-        "label": cv_label,  # may be overridden by ML mode
+        "label": cv_label,
         "debug": {
             "mode": mode,
             "sample_fps": cfg.sample_fps,
@@ -310,8 +297,138 @@ def analyze_motion(
         )
         analysis["ml"] = ml
 
-        # If ML is enabled, use its label; otherwise keep CV label.
         if ml.get("enabled") and ml.get("label"):
             analysis["label"] = ml["label"]
 
     return {"analysis": analysis}
+
+
+def render_motion_tracks_overlay(video_path: str, out_path: str, cfg: Optional[MotionConfig] = None) -> Dict[str, Any]:
+    cfg = cfg or MotionConfig()
+
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise RuntimeError(f"Could not open video: {video_path}")
+
+    fps = cap.get(cv2.CAP_PROP_FPS) or 0.0
+    if fps <= 0:
+        fps = 30.0
+
+    out_fps = cfg.sample_fps
+
+    ok, first = cap.read()
+    if not ok:
+        cap.release()
+        raise RuntimeError("Video is empty / unreadable")
+
+    first = _maybe_resize(first, cfg.resize_max_width)
+    h, w = first.shape[:2]
+
+    out_path = str(out_path)
+    tmp_path = str(Path(out_path).with_suffix(".tmp.mp4"))
+
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    writer = cv2.VideoWriter(tmp_path, fourcc, out_fps, (w, h))
+    if not writer.isOpened():
+        cap.release()
+        raise RuntimeError("Could not open VideoWriter (mp4v).")
+
+    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+
+    prev_g = None
+    prev_centroids: List[Tuple[float, float]] = []
+    frame_idx = 0
+    step = max(int(round(fps / cfg.sample_fps)), 1)
+    frames_written = 0
+
+    while True:
+        ok, frame = cap.read()
+        if not ok:
+            break
+
+        if frame_idx % step != 0:
+            frame_idx += 1
+            continue
+
+        frame = _maybe_resize(frame, cfg.resize_max_width)
+        curr_g = _to_gray_blur(frame, cfg.blur_ksize)
+
+        if prev_g is None:
+            prev_g = curr_g
+            prev_centroids = []
+            writer.write(frame)
+            frames_written += 1
+            frame_idx += 1
+            continue
+
+        mask = _motion_mask(prev_g, curr_g, cfg.diff_thresh, cfg.morph_open_iter, cfg.morph_close_iter)
+        centroids = _extract_centroids(mask, cfg.min_blob_area)
+
+        overlay = frame.copy()
+        if mask is not None:
+            mask_bgr = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
+            overlay = cv2.addWeighted(overlay, 1.0, mask_bgr, 0.15, 0.0)
+
+        if prev_centroids and centroids:
+            prev = np.array(prev_centroids, dtype=np.float32)
+            curr = np.array(centroids, dtype=np.float32)
+            dists = np.linalg.norm(prev[:, None, :] - curr[None, :, :], axis=2)
+            nn_prev_idx = dists.argmin(axis=0)
+
+            for j, (cx, cy) in enumerate(centroids):
+                pi = int(nn_prev_idx[j])
+                px, py = prev_centroids[pi]
+                disp = float(np.hypot(cx - px, cy - py))
+
+                motile = disp >= cfg.motile_blob_disp_thresh_px
+                color = (0, 255, 0) if motile else (0, 255, 255)
+
+                cv2.line(overlay, (int(px), int(py)), (int(cx), int(cy)), color, 2)
+                cv2.circle(overlay, (int(cx), int(cy)), 4, color, -1)
+        else:
+            for (cx, cy) in centroids:
+                cv2.circle(overlay, (int(cx), int(cy)), 4, (255, 255, 0), -1)
+
+        cv2.putText(
+            overlay,
+            f"tracks={len(centroids)} step={step} fps(in)={fps:.1f}",
+            (10, 24),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            (255, 255, 255),
+            2,
+            cv2.LINE_AA,
+        )
+
+        writer.write(overlay)
+        frames_written += 1
+
+        prev_centroids = centroids
+        prev_g = curr_g
+        frame_idx += 1
+
+    writer.release()
+    cap.release()
+
+    ffmpeg = Path(__file__).resolve().parents[1] / "vendor" / "ffmpeg" / "ffmpeg.exe"
+    if ffmpeg.exists():
+        cmd = [
+            str(ffmpeg),
+            "-y",
+            "-i", tmp_path,
+            "-c:v", "libx264",
+            "-pix_fmt", "yuv420p",
+            "-movflags", "+faststart",
+            out_path,
+        ]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode != 0:
+            raise RuntimeError(f"ffmpeg failed: {proc.stderr[:400]}")
+        try:
+            os.remove(tmp_path)
+        except Exception:
+            pass
+    else:
+        os.replace(tmp_path, out_path)
+
+    return {"ok": True, "frames_written": frames_written, "out_fps": out_fps, "step": step}

@@ -190,6 +190,7 @@
                 {{ analysisItem?.type === "video" ? "Video Preview" : "Image Preview" }}
               </div>
 
+              <!-- Image toggle -->
               <button
                 v-if="analysisItem?.type !== 'video'"
                 class="toggleBtn"
@@ -197,6 +198,16 @@
                 @click="overlayOn = !overlayOn"
               >
                 {{ overlayOn ? "Show Original" : "Show Overlay" }}
+              </button>
+
+              <!-- Video toggle -->
+              <button
+                v-if="analysisItem?.type === 'video'"
+                class="toggleBtn"
+                :disabled="!analysisResult?.overlayVideoUrl"
+                @click="videoOverlayOn = !videoOverlayOn"
+              >
+                {{ videoOverlayOn ? "Show Original" : "Show Tracks" }}
               </button>
             </div>
 
@@ -215,7 +226,9 @@
               <video
                 v-else
                 class="viewerImg"
-                :src="analysisItem?.url"
+                :src="videoOverlayOn && analysisResult?.overlayVideoUrl
+                  ? analysisResult.overlayVideoUrl
+                  : analysisItem?.url"
                 controls
                 playsinline
               ></video>
@@ -445,6 +458,7 @@ const analysisLoading = ref(false);
 const analysisError = ref("");
 const analysisResult = ref(null); // { blobCount, overlayImageUrl, maskImageUrl }
 const overlayOn = ref(false);
+const videoOverlayOn = ref(false);
 const savingAnalysis = ref(false);
 const saveOk = ref(false);
 const saveMsg = ref("");
@@ -835,8 +849,14 @@ async function runAnalysis(item) {
     } else {
       const res = await analyzeVideo(item.id, { type: "motion_tracking", mode: "ml_kmeans" });
       const a = res.analysis || {};
+      const base = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
+      const overlayVideoUrlRaw = res.overlayVideoUrl ?? null;
+      const overlayVideoUrl = overlayVideoUrlRaw
+        ? (overlayVideoUrlRaw.startsWith("http") ? overlayVideoUrlRaw : `${base}${overlayVideoUrlRaw}`)
+        : null;
       analysisResult.value = {
         kind: "video",
+        overlayVideoUrl,
         label: a.label ?? "—",
         motion_score: a.motion_score ?? 0,
         motility_ratio: a.motility_ratio ?? 0,
@@ -845,6 +865,7 @@ async function runAnalysis(item) {
         ml: a.ml ?? null,
         debug: a.debug ?? null,
       };
+      videoOverlayOn.value = false;
     }
   } catch (e) {
     analysisError.value = String(e?.message || e);
@@ -926,18 +947,24 @@ async function saveAnalysis() {
 async function closeAnalysisModal() {
   try {
     const id = analysisItem.value?.id;
+    const type = analysisItem.value?.type;
+    const base = import.meta.env.VITE_API_BASE || "";
     if (id) {
-      const base = import.meta.env.VITE_API_BASE || "";
-      fetch(`${base}/analysis/${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (type === "video") {
+        fetch(`${base}/analysis/video/${encodeURIComponent(id)}/tracks`, { method: "DELETE" });
+      } else {
+        fetch(`${base}/analysis/${encodeURIComponent(id)}`, { method: "DELETE" });
+      }
     }
   } catch (e) {
   }
-
   analysisOpen.value = false;
   analysisItem.value = null;
   analysisResult.value = null;
   analysisError.value = "";
   analysisLoading.value = false;
+  if (typeof videoOverlayOn !== "undefined") videoOverlayOn.value = false;
+  if (typeof overlayOn !== "undefined") overlayOn.value = false;
 }
 
 </script>

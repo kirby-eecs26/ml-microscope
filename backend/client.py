@@ -38,6 +38,8 @@ SAVED_VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
 ANALYSIS_CACHE: dict[str, dict] = {}
 ANALYSIS_TTL_SEC = 60 * 60  # 1 hour
 
+VIDEO_OVERLAY_CACHE: dict[str, str] = {}
+
 app = FastAPI(title="ML Microscope Backend")
 
 # - In dev, Vue runs at http://localhost:5173 and calls this backend at http://localhost:8000
@@ -227,27 +229,62 @@ def download_video(video_id: str):
         headers={"Content-Disposition": f'inline; filename="{video_id}.mp4"'},
     )
 
+#Helper
+def resolve_video_path(video_id: str) -> str:
+    saved_mp4 = SAVED_VIDEOS_DIR / f"{video_id}.mp4"
+    if saved_mp4.exists():
+        return str(saved_mp4)
+    return server.get_video_path(video_id)
+
 @app.post("/video/analyze/{video_id}")
 def analyze_video_route(video_id: str, req: VideoAnalyzeRequest):
     try:
-        if req.type not in ("motion_tracking", "motion_tracking_ml"):
-            raise HTTPException(status_code=400, detail="Unsupported analysis type")
-
-        path = server.get_video_path(video_id)
-
+        path = resolve_video_path(video_id)
         cfg = MotionConfig()
         if req.config:
             for k, v in req.config.items():
                 if hasattr(cfg, k):
                     setattr(cfg, k, v)
-
         mode = req.mode or "ml_kmeans"
         result = analyze_motion(path, cfg=cfg, mode=mode)
-        return {"ok": True, **result}
+        overlay_name = f"{video_id}_tracks.mp4"
+        overlay_path = str(ANALYSIS_DIR / overlay_name)
+        from backend.motion import render_motion_tracks_overlay
+        render_motion_tracks_overlay(path, overlay_path, cfg=cfg)
+        VIDEO_OVERLAY_CACHE[video_id] = overlay_path
+        print("[tracks] overlay_path:", overlay_path, "bytes:", os.path.getsize(overlay_path))
+        return {
+            "ok": True,
+            **result,
+            "overlayVideoUrl": f"/analysis/video/{video_id}/tracks",
+        }
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Video analyze failed: {e}")
+    
+@app.get("/analysis/video/{video_id}/tracks")
+def get_tracks_overlay(video_id: str):
+    path = VIDEO_OVERLAY_CACHE.get(video_id)
+    if not path or not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Tracks overlay not found")
+    return FileResponse(path, media_type="video/mp4")
+
+@app.delete("/analysis/video/{video_id}/tracks")
+def delete_tracks_overlay(video_id: str):
+    path = VIDEO_OVERLAY_CACHE.pop(video_id, None)
+    fallback_path = ANALYSIS_DIR / f"{video_id}_tracks.mp4"
+    deleted = False
+    try:
+        if path and os.path.exists(path):
+            os.remove(path)
+            deleted = True
+        elif fallback_path.exists():
+            fallback_path.unlink()
+            deleted = True
+    except Exception:
+        pass
+    return {"ok": True, "deleted": deleted}
     
 @app.put("/video/{video_id}/analysis")
 def save_video_analysis(video_id: str, req: SaveVideoAnalysisRequest):
