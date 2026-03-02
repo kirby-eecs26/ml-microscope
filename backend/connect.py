@@ -2,7 +2,8 @@
 #Establish api connection
 
 import requests
-import error
+from backend import error
+
 API_BASE = "http://microscope.local:5000/" #we can either put the last "/" here or at
                                             # hte beginning of the extensions,
 

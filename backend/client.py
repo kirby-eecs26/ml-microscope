@@ -658,6 +658,7 @@ if FRONTEND_DIST.exists():
             "zip", "actions",
             "analysis",
             "video", "videos",
+            "settings"
         )):
             raise HTTPException(status_code=404, detail="Not found")
         return FileResponse(str(FRONTEND_DIST / "index.html"))

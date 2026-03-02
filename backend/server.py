@@ -1,6 +1,7 @@
 #server.py
 #Connect Python to API
 
+from backend import connect
 import time
 import math
 import backend.error

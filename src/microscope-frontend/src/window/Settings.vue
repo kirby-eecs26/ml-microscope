@@ -293,8 +293,10 @@ const rotationDeg = ref(0)
 const captureDirectory = ref('/capture/images')
 const filenamePrefix = ref('image')
 
-async function postJson(url, body = null) {
-  const res = await fetch(url, {
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8000'
+
+async function postJson(path, body = null) {
+  const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : null,
