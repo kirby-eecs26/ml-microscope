@@ -32,6 +32,8 @@ Frontend Libraries:
 - HTML5: Markup language for structure
 - CSS: Layout & Styling
 - Fetch API: Browser native HTTP client
+- Node.js: JavaScript runtime environment required to run Vite and build the frontend
+- npm: Node package manager used to install and manage frontend dependencies
 
 Build and Packaging: 
 - Node.js + npm: Build execution
