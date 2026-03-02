@@ -17,15 +17,23 @@ Microscope system that captures cell images and uses AI/ML image analysis to aut
 
 Backend Libraries:
 - OpenCV: Segmentation based ML/AI model that detects and categorizes shapes in images for counting cells vs other objects in the sample.
+- NumPy: Array and buffer handling for image bytes
 - Requests: Library to connect and interact with OpenFlexure server API and custom exceptions.
-- Pydantic: 
+- Pydantic: Request models and validation
 - Csv: Reading and writing csv files.
 - Pathlib: access directories for downloading and editing files and images.
-
-Front-End Libraries:
 - Fastapi: Library to connect and interact with UI
-- Uvicorn[standard]: 
+- Uvicorn[standard]: ASGI server, used to run the backend port
 
+Frontend Libraries:
+- Vue: Reactive JavaScript framework used to build the UI
+- Vite: Dev server used for fast hot-reload development
+- CSS: Layout & Styling
+- Fetch API: Browser native HTTP client
+
+Build and Packaging: 
+- Node.js + npm: Build execution
+- FFmpeg: Video transcoding to H.264
 
 
 ## Repository Structure
