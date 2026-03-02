@@ -7,7 +7,6 @@
         <div class="sectionTitle">Application Settings</div>
         <div class="settingsNav">
           <div class="navItem" :class="{ active: activeTab === 'display' }" @click="activeTab = 'display'">Display</div>
-          <div class="navItem" :class="{ active: activeTab === 'features' }" @click="activeTab = 'features'">Features</div>
         </div>
       </div>
 
@@ -19,7 +18,6 @@
         <div class="settingsNav">
           <div class="navItem" :class="{ active: activeTab === 'camera' }" @click="activeTab = 'camera'">Camera</div>
           <div class="navItem" :class="{ active: activeTab === 'mapping' }" @click="activeTab = 'mapping'">Camera / Stage Mapping</div>
-          <div class="navItem" :class="{ active: activeTab === 'general' }" @click="activeTab = 'general'">General</div>
         </div>
       </div>
     </aside>
@@ -51,61 +49,6 @@
               <input type="checkbox" v-model="disableWebStream" />
               <span>Disable web stream</span>
             </label>
-          </div>
-        </div>
-
-        <div class="settingGroup">
-          <h3 class="settingTitle">Microscope display output</h3>
-          <div class="settingDescription">
-            Toggle GPU preview and whether the preview tracks the window.
-          </div>
-
-          <div class="formRow">
-            <label class="checkRow">
-              <input type="checkbox" v-model="enableGpuPreview" />
-              <span>Enable GPU preview</span>
-            </label>
-          </div>
-
-          <div class="formRow">
-            <label class="checkRow">
-              <input type="checkbox" v-model="trackWindow" />
-              <span>Track window</span>
-            </label>
-          </div>
-        </div>
-
-        <div class="settingGroup">
-          <button class="primaryAction" @click="saveDisplaySettings">APPLY SETTINGS</button>
-        </div>
-      </div>
-
-      <!-- FEATURES -->
-      <div class="featuresSettings" v-if="activeTab === 'features'">
-        <h2 class="contentTitle">Features</h2>
-
-        <div class="settingGroup">
-          <h3 class="settingTitle">Experimental</h3>
-          <div class="settingDescription">
-            Enable or disable optional UI features. (Demo wiring for frontend.)
-          </div>
-
-          <div class="formRow">
-            <label class="checkRow">
-              <input type="checkbox" v-model="featureAutoSave" />
-              <span>Auto-save annotations</span>
-            </label>
-          </div>
-
-          <div class="formRow">
-            <label class="checkRow">
-              <input type="checkbox" v-model="featureHotkeys" />
-              <span>Enable keyboard shortcuts</span>
-            </label>
-          </div>
-
-          <div class="formRow">
-            <button class="primaryAction" @click="saveFeatureSettings">APPLY SETTINGS</button>
           </div>
         </div>
       </div>
@@ -231,26 +174,6 @@
           </div>
         </div>
       </div>
-
-      <!-- GENERAL -->
-      <div class="generalSettings" v-if="activeTab === 'general'">
-        <h2 class="contentTitle">Microscope Settings</h2>
-
-        <div class="settingGroup">
-          <div class="formRow">
-            <label for="microscopeName">Microscope name</label>
-            <input 
-              id="microscopeName" 
-              class="textInput" 
-              type="text" 
-              v-model="microscopeName" 
-              placeholder="Enter microscope name"
-            />
-          </div>
-          <button class="primaryAction" @click="saveGeneralSettings">APPLY SETTINGS</button>
-        </div>
-      </div>
-
     </main>
   </div>
 </template>
@@ -265,10 +188,6 @@ const selectedTheme = ref('system')
 const disableWebStream = ref(false)
 const enableGpuPreview = ref(false)
 const trackWindow = ref(true)
-
-/* Features */
-const featureAutoSave = ref(false)
-const featureHotkeys = ref(false)
 
 /* Camera */
 const camExposure = ref(33243)
@@ -314,13 +233,6 @@ function saveDisplaySettings() {
     disableWebStream: disableWebStream.value,
     enableGpuPreview: enableGpuPreview.value,
     trackWindow: trackWindow.value,
-  })
-}
-
-function saveFeatureSettings() {
-  console.log('APPLY FEATURES', {
-    autoSave: featureAutoSave.value,
-    hotkeys: featureHotkeys.value,
   })
 }
 
@@ -379,13 +291,6 @@ function saveMappingSettings() {
   console.log('APPLY MAPPING', {
     pixelsPerUm: pixelsPerUm.value,
     rotationDeg: rotationDeg.value,
-  })
-}
-
-function saveGeneralSettings() {
-  console.log('APPLY GENERAL', {
-    captureDirectory: captureDirectory.value,
-    filenamePrefix: filenamePrefix.value,
   })
 }
 </script>
