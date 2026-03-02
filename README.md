@@ -28,6 +28,8 @@ Backend Libraries:
 Frontend Libraries:
 - Vue: Reactive JavaScript framework used to build the UI
 - Vite: Dev server used for fast hot-reload development
+- JavaScript: Core language of the frontend UI
+- HTML5: Markup language for structure
 - CSS: Layout & Styling
 - Fetch API: Browser native HTTP client
 
