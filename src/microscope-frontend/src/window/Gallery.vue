@@ -9,9 +9,13 @@
         <span class="material-symbols-outlined searchIcon">search</span>
       </div>
 
-      <button class="downloadAll" @click="downloadAll" :disabled="zipBusy">
-        {{ zipBusy ? "Creating..." : (zipReady ? "Download Zip" : "Create Zip") }}
-      </button>
+      <div class="actionButtons">
+        <button class="csvBtn" @click="downloadCSV">Download CSV</button>
+
+        <button class="downloadAll" @click="downloadAll" :disabled="zipBusy">
+          {{ zipBusy ? "Creating..." : (zipReady ? "Download Zip" : "Create Zip") }}
+        </button>
+      </div>
     </header>
 
 
@@ -950,7 +954,7 @@ async function closeAnalysisModal() {
 /* Top bar */
 .topbar {
   display: grid;
-  grid-template-columns: 120px 1fr 140px;
+  grid-template-columns: 120px 1fr auto;
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
@@ -1032,6 +1036,31 @@ async function closeAnalysisModal() {
 
 .tagAddChip:active {
   transform: translateY(1px);
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-self: end;   
+}
+
+.csvBtn {
+  height: 30px;
+  padding: 0 18px;
+  margin: 0 20px;
+  border: none;
+  border-radius: 6px;
+  background: #1f4b7a;  
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.csvBtn:hover {
+  filter: brightness(0.95);
 }
 
 /* Download button (dark blue rounded) */

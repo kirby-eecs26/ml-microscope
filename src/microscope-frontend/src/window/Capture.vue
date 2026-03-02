@@ -336,7 +336,7 @@ const recordedVideoId = ref(null);
 
 const stopModalOpen = ref(false);
 const stopPreviewUrl = ref("");
-const videoModalFilename = ref("filename");
+const videoModalFilename = ref("");
 const videoModalNotes = ref("");
 const videoModalAnnotations = ref([]);
 const videoModalTags = ref([]);
@@ -468,7 +468,6 @@ async function saveImageToGallery() {
     await captureImage(payload); // save permanently
     const tempId = capturedImageId.value;
     imageModalOpen.value = false;
-    router.push("/gallery");
 
     capturedImageId.value = null;
     imagePreviewUrl.value = "";
