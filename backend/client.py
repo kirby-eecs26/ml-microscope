@@ -96,6 +96,17 @@ class VideoAnalyzeRequest(BaseModel):
 class SaveVideoAnalysisRequest(BaseModel):
     analysis: dict = {}
 
+class CameraSettingsRequest(BaseModel):
+    exposure: int | None = None
+    analogueGain: float | None = None
+    digitalGain: float | None = None
+    wbR: float | None = None
+    wbB: float | None = None
+    jpegQuality: int | None = None
+    streamResolution: str | None = None
+    cameraBitrate: str | None = None
+    cameraFramerate: int | None = None
+
 
 # -----------------------
 # API routes
@@ -544,6 +555,73 @@ def clear_analysis(capture_id: str):
     except Exception:
         pass
     return {"ok": True, "deleted": True}
+
+@app.post("/settings/camera/apply")
+def apply_camera_settings(req: CameraSettingsRequest):
+    """
+    Apply Pi camera settings. This is the only settings button with a payload.
+    We forward whatever payload the server.py expects.
+    """
+    try:
+        payload = req.model_dump(exclude_none=True)
+        out = server.settings(payload)
+        return {"ok": True, "result": out}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Apply camera settings failed: {e}")
+
+
+@app.post("/settings/calibration/full_autocalibrate")
+def calibration_full_autocalibrate():
+    try:
+        out = server.full_autocalibrate()
+        return {"ok": True, "result": out}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Full auto-calibrate failed: {e}")
+
+
+@app.post("/settings/calibration/auto_gain_shutter")
+def calibration_auto_gain_shutter():
+    try:
+        out = server.auto_gain_shutter_speed()
+        return {"ok": True, "result": out}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Auto gain & shutter failed: {e}")
+
+
+@app.post("/settings/calibration/auto_white_balance")
+def calibration_auto_white_balance():
+    try:
+        out = server.auto_white_balance()
+        return {"ok": True, "result": out}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Auto white balance failed: {e}")
+
+
+@app.post("/settings/calibration/auto_flat_field")
+def calibration_auto_flat_field():
+    try:
+        out = server.auto_flat_field_correction()
+        return {"ok": True, "result": out}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Auto flat field failed: {e}")
+
+
+@app.post("/settings/calibration/disable_flat_field")
+def calibration_disable_flat_field():
+    try:
+        out = server.disable_flat_field_correction()
+        return {"ok": True, "result": out}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Disable flat field failed: {e}")
+
+
+@app.post("/settings/mapping/autocalibrate_using_camera")
+def mapping_autocalibrate_using_camera():
+    try:
+        out = server.autocalibrate_using_camera()
+        return {"ok": True, "result": out}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Mapping autocalibrate failed: {e}")
 
 
 # ---------------------------

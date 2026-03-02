@@ -205,7 +205,6 @@
             <button class="secondaryAction" @click="runCalibration('AUTO_WHITE_BALANCE')">AUTO WHITE BALANCE</button>
             <button class="secondaryAction" @click="runCalibration('AUTO_FLAT_FIELD')">AUTO FLAT FIELD CORRECTION</button>
             <button class="secondaryAction danger" @click="runCalibration('DISABLE_FLAT_FIELD')">DISABLE FLAT FIELD CORRECTION</button>
-            <button class="secondaryAction" @click="downloadLensShadingTable">DOWNLOAD LENS-SHADING TABLE</button>
           </div>
         </div>
       </div>
@@ -294,6 +293,19 @@ const rotationDeg = ref(0)
 const captureDirectory = ref('/capture/images')
 const filenamePrefix = ref('image')
 
+async function postJson(url, body = null) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : null,
+  })
+  if (!res.ok) {
+    const txt = await res.text()
+    throw new Error(`${url} failed: ${res.status} ${txt}`)
+  }
+  return await res.json()
+}
+
 function saveDisplaySettings() {
   console.log('APPLY DISPLAY', {
     theme: selectedTheme.value,
@@ -324,12 +336,34 @@ function applyCameraSettings() {
   })
 }
 
-function runCalibration(kind) {
-  console.log('CALIBRATION', kind)
+async function runCalibration(kind) {
+  const routes = {
+    FULL_AUTO_CALIBRATE: '/settings/calibration/full_autocalibrate',
+    AUTO_GAIN_SHUTTER: '/settings/calibration/auto_gain_shutter',
+    AUTO_WHITE_BALANCE: '/settings/calibration/auto_white_balance',
+    AUTO_FLAT_FIELD: '/settings/calibration/auto_flat_field',
+    DISABLE_FLAT_FIELD: '/settings/calibration/disable_flat_field',
+  }
+  const url = routes[kind]
+  if (!url) {
+    console.warn('Unknown calibration kind:', kind)
+    return
+  }
+  try {
+    const out = await postJson(url)
+    console.log('CALIBRATION OK', kind, out)
+  } catch (e) {
+    console.error('CALIBRATION ERROR', kind, e)
+  }
 }
 
-function downloadLensShadingTable() {
-  console.log('DOWNLOAD LENS SHADING TABLE')
+async function autoCalibrateMapping() {
+  try {
+    const out = await postJson('/settings/mapping/autocalibrate_using_camera')
+    console.log('MAPPING AUTOCALIBRATE OK', out)
+  } catch (e) {
+    console.error('MAPPING AUTOCALIBRATE ERROR', e)
+  }
 }
 
 function saveStageSettings() {
