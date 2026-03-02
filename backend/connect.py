@@ -4,8 +4,7 @@
 import requests
 from backend import error
 
-API_BASE = "http://microscope.local:5000/" #we can either put the last "/" here or at
-                                            # hte beginning of the extensions,
+API_BASE = "http://microscope.local:5000/"
 
 def apiConnect(timeout = 2.0):
     """

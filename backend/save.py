@@ -56,7 +56,6 @@ def download_image(capture_id):
     takes the capture id and gets images from the local pi then copies (saves) the image data
     to the users home downloads file
     catch exceptions and add them to logging
-    todo: add exceptions to logging
     :param capture_id:
     :return: N/A
     """
@@ -83,9 +82,8 @@ def download_image(capture_id):
 
 
 def get_capture(capture_id, timeout=2.0):
-    """ DOES NOT WORK
+    """
     takes in capture id to get image from the local pi then returns image
-    todo: fix get image access not using right access link or api calls, add exception handling to logging
     :param capture_id:
     :param timeout:
     :return:
