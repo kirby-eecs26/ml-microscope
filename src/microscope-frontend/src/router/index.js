@@ -4,8 +4,6 @@ import Connect from "../window/Connect.vue";
 import View from "../window/View.vue";
 import Gallery from "../window/Gallery.vue";
 import Move from "../window/Move.vue";
-import Image from "../window/Image.vue";
-import Video from "../window/Video.vue";
 import Capture from "../window/Capture.vue";
 import About from "../window/About.vue";
 import Logging from "../window/Logging.vue";
@@ -19,8 +17,6 @@ export default createRouter({
     { path: "/view", component: View },
     { path: "/gallery", component: Gallery },
     { path: "/move", component: Move },
-    { path: "/image", component: Image },
-    { path: "/video", component: Video },
     { path: "/capture", component: Capture },
     { path: "/about", component: About},
     { path: "/logging", component: Logging},

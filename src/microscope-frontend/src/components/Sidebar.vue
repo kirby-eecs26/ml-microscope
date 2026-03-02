@@ -15,16 +15,6 @@
       <span class="label">Move</span>
     </RouterLink>
 
-    <RouterLink class="nav" to="/image">
-      <span class="material-symbols-outlined icon">photo_camera</span>
-      <span class="label">Image</span>
-    </RouterLink>
-
-    <RouterLink class="nav" to="/video">
-      <span class="material-symbols-outlined icon">videocam</span>
-      <span class="label">Video</span>
-    </RouterLink>
-
     <RouterLink class="nav" to="/capture">
       <span class="material-symbols-outlined icon">photo_camera</span>
       <span class="label">Capture</span>
