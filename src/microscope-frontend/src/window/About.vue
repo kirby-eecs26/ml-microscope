@@ -4,7 +4,7 @@
         <h1 class="mainTitle">Cellular Imaging Studio</h1>
 
         <div class="section">
-            <p class="version"><strong>App Version:</strong> 0.x</p>
+            <p class="version"><strong>App Version:</strong> 0.01</p>
         </div>
 
         <div class="section">
@@ -28,10 +28,11 @@
         </div>
 
         <div class="section">
-            <!-- Need to add an actual link -->
             <h2 class="sectionTitle">Links</h2>     
             <div class="infoGrid">
-                <p class="link-placeholder">Report an issue</p>
+                <p>
+                  <a class="report-link" href="https://docs.google.com/forms/d/e/1FAIpQLSegUnN5GF0ICj0CRlQ6HM50yFV_nvg_X8xL2ib5RbB1xKAfnA/viewform">Report an issue</a>
+                </p>
             </div>
         </div>
 
@@ -103,6 +104,10 @@
   color: #333;
   font-weight: 700;
   margin-right: 8px;
+}
+
+.report-link:visited {
+  color: #0057b4;
 }
 
 /* Version */

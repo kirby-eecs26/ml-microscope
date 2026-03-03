@@ -50,7 +50,7 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-//import ExitModal from './Exit.vue';
+import ExitModal from './Exit.vue';
 
 const router = useRouter();
 const exitModalVisible = ref(false);
