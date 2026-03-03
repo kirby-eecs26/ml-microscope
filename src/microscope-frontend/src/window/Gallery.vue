@@ -190,25 +190,64 @@
                 {{ analysisItem?.type === "video" ? "Video Preview" : "Image Preview" }}
               </div>
 
-              <!-- Image toggle -->
-              <button
-                v-if="analysisItem?.type !== 'video'"
-                class="toggleBtn"
-                :disabled="!analysisResult?.overlayImageUrl"
-                @click="overlayOn = !overlayOn"
-              >
-                {{ overlayOn ? "Show Original" : "Show Overlay" }}
-              </button>
+              <div class="viewerControls">
+                <!-- Sensitivity (VIDEO ONLY) -->
+                <div v-if="analysisItem?.type === 'video'" class="sensControl">
+                  <div class="sensLabel">Sensitivity</div>
 
-              <!-- Video toggle -->
-              <button
-                v-if="analysisItem?.type === 'video'"
-                class="toggleBtn"
-                :disabled="!analysisResult?.overlayVideoUrl"
-                @click="videoOverlayOn = !videoOverlayOn"
-              >
-                {{ videoOverlayOn ? "Show Original" : "Show Tracks" }}
-              </button>
+                  <div class="segmented">
+                    <button
+                      class="segBtn"
+                      :class="{ active: motionSensitivity === 'low' }"
+                      :disabled="analysisLoading"
+                      @click="setSensitivity('low')"
+                      type="button"
+                    >
+                      Low
+                    </button>
+
+                    <button
+                      class="segBtn"
+                      :class="{ active: motionSensitivity === 'medium' }"
+                      :disabled="analysisLoading"
+                      @click="setSensitivity('medium')"
+                      type="button"
+                    >
+                      Med
+                    </button>
+
+                    <button
+                      class="segBtn"
+                      :class="{ active: motionSensitivity === 'high' }"
+                      :disabled="analysisLoading"
+                      @click="setSensitivity('high')"
+                      type="button"
+                    >
+                      High
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Image toggle -->
+                <button
+                  v-if="analysisItem?.type !== 'video'"
+                  class="toggleBtn"
+                  :disabled="!analysisResult?.overlayImageUrl"
+                  @click="overlayOn = !overlayOn"
+                >
+                  {{ overlayOn ? "Show Original" : "Show Overlay" }}
+                </button>
+
+                <!-- Video toggle -->
+                <button
+                  v-if="analysisItem?.type === 'video'"
+                  class="toggleBtn"
+                  :disabled="!analysisResult?.overlayVideoUrl"
+                  @click="videoOverlayOn = !videoOverlayOn"
+                >
+                  {{ videoOverlayOn ? "Show Original" : "Show Tracks" }}
+                </button>
+              </div>
             </div>
 
             <div class="viewerFrame">
@@ -462,6 +501,7 @@ const videoOverlayOn = ref(false);
 const savingAnalysis = ref(false);
 const saveOk = ref(false);
 const saveMsg = ref("");
+const motionSensitivity = ref("medium"); // 'low' | 'medium' | 'high'
 
 /** Remove tag */
 const removeTagOpen = ref(false);
@@ -575,16 +615,28 @@ async function confirmRemoveTag() {
   removeTagError.value = "";
 
   try {
-    await deleteTag(removeTagItem.value.id, removeTagValue.value);
-
     const id = removeTagItem.value.id;
     const tag = removeTagValue.value;
+    const base = import.meta.env.VITE_API_BASE || "";
+    if (removeTagItem.value.type === "video") {
+      const res = await fetch(
+        `${base}/video/${encodeURIComponent(id)}/tags/${encodeURIComponent(tag)}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Failed to remove tag (${res.status})`);
+      }
+    } else {
+      await deleteTag(id, tag);
+    }
     const target = gallery.value.find((x) => x.id === id);
     if (target) {
-      target.tags = (target.tags || []).filter((t) => String(t) !== String(tag));
+      target.tags = (target.tags || []).filter(
+        (t) => String(t) !== String(tag)
+      );
     }
-
-  closeRemoveTag(true);
+    closeRemoveTag(true);
   } catch (e) {
     removeTagError.value = String(e?.message || e);
   } finally {
@@ -621,11 +673,16 @@ async function confirmAddTag() {
       .map(t => String(t).trim())
       .filter(t => t && t !== "temporary");
     const base = import.meta.env.VITE_API_BASE || "";
-    const res = await fetch(`${base}/captures/${encodeURIComponent(id)}/tags`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tags: merged }),
-    });
+    const res = await fetch(
+      addTagItem.value.type === "video"
+        ? `${base}/video/${encodeURIComponent(id)}/tags`
+        : `${base}/captures/${encodeURIComponent(id)}/tags`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tags: merged }),
+      }
+    );
     if (!res.ok) {
       const text = await res.text();
       throw new Error(text || `Failed to add tag (${res.status})`);
@@ -678,23 +735,22 @@ async function downloadOne(img) {
     const base = import.meta.env.VITE_API_BASE || "";
     const url =
       img.type === "video"
-        ? `${base}/video/${encodeURIComponent(img.id)}/download`
+        ? `${base}/video/${encodeURIComponent(img.id)}/download?dl=1`
         : `${base}/captures/${encodeURIComponent(img.id)}/image`;
-
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Download failed: ${res.status} ${res.statusText}`);
-
     const blob = await res.blob();
     const objectUrl = URL.createObjectURL(blob);
-
-    const rawName = (img.name || `capture_${img.id}`).trim();
+    const rawName = (img.name || (img.type === "video" ? `video_${img.id}` : `capture_${img.id}`)).trim();
     const safeName = rawName.replace(/[^\w.-]+/g, "_");
-
-    const lower = safeName.toLowerCase();
-    const filename = (lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png"))
-      ? safeName
-      : `${safeName}.jpeg`;
-
+    let filename = safeName;
+    if (img.type === "video") {
+      if (!filename.toLowerCase().endsWith(".mp4")) filename += ".mp4";
+    } else {
+      const lower = filename.toLowerCase();
+      const hasImgExt = lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png");
+      if (!hasImgExt) filename += ".jpeg";
+    }
     const a = document.createElement("a");
     a.href = objectUrl;
     a.download = filename;
@@ -760,43 +816,23 @@ async function downloadAll() {
       await downloadZipById(zipId.value);
       return;
     }
-
     zipBusy.value = true;
     zipReady.value = false;
     zipId.value = null;
-
     const startRes = await fetch(`${base}/zip/build`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
     });
-    if (!startRes.ok) throw new Error(`Zip build start failed: ${startRes.status}`);
+    if (!startRes.ok) {
+      const text = await startRes.text();
+      throw new Error(text || `Zip build failed (${startRes.status})`);
+    }
     const startJson = await startRes.json();
-
-    const actionId = startJson?.id;
-    if (!actionId) throw new Error("Zip build did not return an action id");
-
-    let actionJson = null;
-    for (let i = 0; i < 60; i++) {
-      const aRes = await fetch(`${base}/actions/${encodeURIComponent(actionId)}`);
-      if (!aRes.ok) throw new Error(`Action poll failed: ${aRes.status}`);
-      actionJson = await aRes.json();
-
-      const status = actionJson?.status;
-      if (status === "completed") break;
-      if (status === "failed") throw new Error("Zip build failed");
-
-      await new Promise((r) => setTimeout(r, 1000));
-    }
-
-    if (!actionJson || actionJson.status !== "completed") {
-      throw new Error("Zip build timed out");
-    }
-
-    const newZipId = actionJson?.output?.id;
-    if (!newZipId) throw new Error("Zip completed but no zip id found");
-
+    const newZipId = startJson?.id;
+    if (!newZipId) throw new Error("Zip build did not return an id");
     zipId.value = newZipId;
     zipReady.value = true;
+    await downloadZipById(newZipId);
   } catch (e) {
     console.error(e);
     zipError.value = String(e?.message || e);
@@ -817,12 +853,35 @@ async function downloadZipById(id) {
 
   const a = document.createElement("a");
   a.href = objectUrl;
-  a.download = `captures_${id}.zip`;
+  a.download = `gallery_${id}.zip`;
   document.body.appendChild(a);
   a.click();
   a.remove();
 
   URL.revokeObjectURL(objectUrl);
+}
+
+async function downloadCSV() {
+  try {
+    const base = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
+    const res = await fetch(`${base}/export/csv`);
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(text || `CSV export failed (${res.status})`);
+    }
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = "gallery_export.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(objectUrl);
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 /** Analyze */
@@ -847,7 +906,11 @@ async function runAnalysis(item) {
         overlayImageUrl: overlayUrl,
       };
     } else {
-      const res = await analyzeVideo(item.id, { type: "motion_tracking", mode: "ml_kmeans" });
+      const res = await analyzeVideo(item.id, {
+        type: "motion_tracking",
+        mode: "ml_kmeans",
+        sensitivity: motionSensitivity.value,
+      });
       const a = res.analysis || {};
       const base = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
       const overlayVideoUrlRaw = res.overlayVideoUrl ?? null;
@@ -942,6 +1005,12 @@ async function saveAnalysis() {
   } finally {
     savingAnalysis.value = false;
   }
+}
+
+async function setSensitivity(level) {
+  motionSensitivity.value = level;
+  if (!analysisItem.value || analysisItem.value.type !== "video") return;
+  await runAnalysis(analysisItem.value);
 }
 
 async function closeAnalysisModal() {
@@ -1485,6 +1554,61 @@ async function closeAnalysisModal() {
 .analysisRight {
   min-height: 0;
   border-radius: 10px;
+}
+
+.viewerControls{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sensControl{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 8px;
+  border-right: 1px solid rgba(31, 75, 122, 0.18);
+  margin-right: 6px;
+}
+
+.sensLabel{
+  font-size: 11px;
+  font-weight: 900;
+  color: #1f4b7a;
+  opacity: 0.95;
+}
+
+.segmented{
+  display: inline-flex;
+  border: 1px solid rgba(31, 75, 122, 0.35);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(31, 75, 122, 0.06);
+}
+
+.segBtn{
+  height: 34px;
+  padding: 0 12px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 900;
+  color: #1f4b7a;
+  cursor: pointer;
+}
+
+.segBtn:hover{
+  background: rgba(31, 75, 122, 0.08);
+}
+
+.segBtn.active{
+  background: #1f4b7a;
+  color: #fff;
+}
+
+.segBtn:disabled{
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* LEFT */

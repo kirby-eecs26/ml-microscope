@@ -18,20 +18,20 @@ class MotionConfig:
     sample_fps: float = 10.0
 
     # Resize frames to speed up analysis (set None to disable)
-    resize_max_width: Optional[int] = 640
+    resize_max_width: Optional[int] = None
 
     # Gaussian blur kernel size (must be odd)
-    blur_ksize: int = 7
+    blur_ksize: int = 3
 
     # Pixel difference threshold (0-255) for motion mask
-    diff_thresh: int = 20
+    diff_thresh: int = 8
 
     # Morphology to denoise the motion mask
-    morph_open_iter: int = 1
-    morph_close_iter: int = 2
+    morph_open_iter: int = 0
+    morph_close_iter: int = 1
 
     # Ignore tiny blobs in motion mask (in pixels)
-    min_blob_area: int = 60
+    min_blob_area: int = 10
 
     # Convert motion_score -> label using this threshold (baseline)
     label_threshold: float = 0.02
@@ -39,6 +39,42 @@ class MotionConfig:
     # A "motile object" is a blob whose centroid moves more than this between frames (in px)
     # NOTE: This is only a proxy without real tracking.
     motile_blob_disp_thresh_px: float = 2.5
+
+SENSITIVITY_PRESETS: dict[str, dict] = {
+    "low": {
+        "sample_fps": 10.0,
+        "resize_max_width": 640,
+        "blur_ksize": 7,
+        "diff_thresh": 20,
+        "morph_open_iter": 1,
+        "morph_close_iter": 2,
+        "min_blob_area": 60,
+        "label_threshold": 0.02,
+        "motile_blob_disp_thresh_px": 2.5,
+    },
+    "medium": {
+        "sample_fps": 10.0,
+        "resize_max_width": 960,   # or None if you want
+        "blur_ksize": 5,
+        "diff_thresh": 12,
+        "morph_open_iter": 1,
+        "morph_close_iter": 1,
+        "min_blob_area": 25,
+        "label_threshold": 0.01,   # if you still use motion_score anywhere
+        "motile_blob_disp_thresh_px": 2.0,
+    },
+    "high": {
+        "sample_fps": 10.0,
+        "resize_max_width": None,
+        "blur_ksize": 3,
+        "diff_thresh": 8,
+        "morph_open_iter": 0,
+        "morph_close_iter": 1,
+        "min_blob_area": 10,
+        "label_threshold": 0.005,
+        "motile_blob_disp_thresh_px": 1.0,
+    },
+}
 
 
 def _maybe_resize(frame_bgr: np.ndarray, max_w: Optional[int]) -> np.ndarray:
@@ -269,7 +305,7 @@ def analyze_motion(
     motility_ratio = (motile_blob_hits / motile_blob_total) if motile_blob_total > 0 else 0.0
     avg_disp = float(np.mean(disp_accum)) if disp_accum else 0.0
     avg_speed = avg_disp * cfg.sample_fps
-    cv_label = "MOTILE" if motion_mean >= cfg.label_threshold else "STATIC"
+    cv_label = "MOTILE" if (motility_ratio >= 0.2 and tracks_mean >= 2) else "STATIC"
 
     analysis: Dict[str, Any] = {
         "type": "motion_tracking" if mode == "cv" else "motion_tracking_ml",
@@ -314,7 +350,7 @@ def render_motion_tracks_overlay(video_path: str, out_path: str, cfg: Optional[M
     if fps <= 0:
         fps = 30.0
 
-    out_fps = cfg.sample_fps
+    out_fps = float(fps)
 
     ok, first = cap.read()
     if not ok:

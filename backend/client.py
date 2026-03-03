@@ -13,16 +13,22 @@ from fastapi import Query
 from backend.logging_store import list_events, add_message
 # Count ml imports
 import os
+import csv
+import io
+import json
+from fastapi.responses import StreamingResponse
 import time
 import uuid
 import numpy as np
 import cv2
+import re
+import unicodedata
+from zipfile import ZipFile, ZIP_DEFLATED
 from fastapi.responses import FileResponse
 
 from backend.count import count_from_rgb
-from backend.server import get_video_path
 
-from backend.motion import analyze_motion, MotionConfig
+from backend.motion import analyze_motion, MotionConfig, SENSITIVITY_PRESETS
 
 from backend import server
 import sys
@@ -39,6 +45,9 @@ ANALYSIS_CACHE: dict[str, dict] = {}
 ANALYSIS_TTL_SEC = 60 * 60  # 1 hour
 
 VIDEO_OVERLAY_CACHE: dict[str, str] = {}
+
+ZIP_DIR = Path(__file__).resolve().parent / "zips"
+ZIP_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="ML Microscope Backend")
 
@@ -94,6 +103,7 @@ class VideoAnalyzeRequest(BaseModel):
     type: str = "motion_tracking"
     mode: str = "ml_kmeans"
     config: dict | None = None
+    sensitivity: str | None = None  # "low" | "medium" | "high"
 
 class SaveVideoAnalysisRequest(BaseModel):
     analysis: dict = {}
@@ -108,6 +118,29 @@ class CameraSettingsRequest(BaseModel):
     streamResolution: str | None = None
     cameraBitrate: str | None = None
     cameraFramerate: int | None = None
+
+def _safe_filename(name: str, default: str) -> str:
+    name = (name or "").strip()
+    if not name:
+        name = default
+    name = unicodedata.normalize("NFKD", name)
+    name = name.replace("\\", "_").replace("/", "_").replace(":", "_")
+    name = re.sub(r"[^\w.\- ()]+", "_", name).strip()
+    if not name:
+        name = default
+    return name
+
+def _safe_json(obj) -> str:
+    try:
+        return json.dumps(obj or {}, ensure_ascii=False)
+    except Exception:
+        return "{}"
+
+def _ensure_ext(filename: str, ext: str) -> str:
+    ext = ext if ext.startswith(".") else f".{ext}"
+    if filename.lower().endswith(ext.lower()):
+        return filename
+    return filename + ext
 
 
 # -----------------------
@@ -241,6 +274,11 @@ def analyze_video_route(video_id: str, req: VideoAnalyzeRequest):
     try:
         path = resolve_video_path(video_id)
         cfg = MotionConfig()
+        if req.sensitivity:
+            preset = SENSITIVITY_PRESETS.get(req.sensitivity.lower())
+            if preset:
+                for k, v in preset.items():
+                    setattr(cfg, k, v)
         if req.config:
             for k, v in req.config.items():
                 if hasattr(cfg, k):
@@ -296,6 +334,14 @@ def save_video_analysis(video_id: str, req: SaveVideoAnalysisRequest):
 
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
         meta["analysis"] = req.analysis or {}
+        ann = dict(meta.get("annotations") or {})
+        a = req.analysis or {}
+        if "motility_ratio" in a:       ann["ML_MotilityRatio"] = float(a["motility_ratio"])
+        if "motion_score" in a:         ann["ML_MotionScore"] = float(a["motion_score"])
+        if "avg_speed_px_per_s" in a:   ann["ML_AvgSpeedPxPerS"] = float(a["avg_speed_px_per_s"])
+        if "tracks" in a:               ann["ML_Tracks"] = int(a["tracks"])
+        ann["ML_AnalyzedAt"] = a.get("analyzed_at") or time.strftime("%Y-%m-%dT%H:%M:%S")
+        meta["annotations"] = ann
         meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
         return {"ok": True, "video": meta}
     except HTTPException:
@@ -358,6 +404,48 @@ def save_video(video_id: str, req: SaveCaptureRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Save video failed: {e}")
     
+@app.put("/video/{video_id}/tags")
+def set_video_tags(video_id: str, req: TagsRequest):
+    try:
+        import json
+        meta_path = SAVED_VIDEOS_DIR / f"{video_id}.json"
+        if not meta_path.exists():
+            raise HTTPException(status_code=404, detail="Video metadata not found (is it saved?)")
+
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+
+        tags = [str(t).strip() for t in (req.tags or [])]
+        tags = [t for t in tags if t and t != "temporary"]
+        tags = list(dict.fromkeys(tags))
+
+        meta["tags"] = tags
+        meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+        return {"ok": True, "tags": tags}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Update video tags failed: {e}")
+
+
+@app.delete("/video/{video_id}/tags/{tag}")
+def delete_video_tag(video_id: str, tag: str):
+    try:
+        import json
+        meta_path = SAVED_VIDEOS_DIR / f"{video_id}.json"
+        if not meta_path.exists():
+            raise HTTPException(status_code=404, detail="Video metadata not found (is it saved?)")
+
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        tags = [str(t).strip() for t in (meta.get("tags") or [])]
+        tags = [t for t in tags if t and t != "temporary" and t != tag]
+
+        meta["tags"] = tags
+        meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+        return {"ok": True, "tags": tags}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Delete video tag failed: {e}")
 
    
 @app.put("/captures/{capture_id}/metadata")
@@ -435,15 +523,72 @@ def delete_capture(capture_id: str):
 @app.post("/zip/build")
 def zip_build():
     try:
-        caps = server.listCaptures()
-        ids = [c["id"] for c in (caps or []) if "id" in c]
+        zip_id = uuid.uuid4().hex
+        zip_path = (Path(__file__).resolve().parent / "zip_outputs")
+        zip_path.mkdir(parents=True, exist_ok=True)
+        out_zip = zip_path / f"gallery_{zip_id}.zip"
+        caps = server.listCaptures() or []
+        vids = []
+        for p in SAVED_VIDEOS_DIR.glob("*.json"):
+            try:
+                import json
+                meta = json.loads(p.read_text(encoding="utf-8"))
+                vid = meta.get("id")
+                if not vid:
+                    continue
+                mp4_path = SAVED_VIDEOS_DIR / f"{vid}.mp4"
+                if mp4_path.exists():
+                    vids.append(meta)
+            except Exception:
+                pass
+        used_names = set()
+        with ZipFile(out_zip, "w", compression=ZIP_DEFLATED) as z:
+            for c in caps:
+                cid = c.get("id")
+                if not cid:
+                    continue
+                meta = requests.get(f"{server.API_BASE}api/v2/captures/{cid}", timeout=10)
+                meta.raise_for_status()
+                cap_name = meta.json().get("name", f"{cid}.jpeg")
 
-        url = f"{server.API_BASE}api/v2/extensions/org.openflexure.zipbuilder/build"
-        r = requests.post(url, json=ids, timeout=30)
-        r.raise_for_status()
-        return r.json()
+                cap_name = _safe_filename(cap_name, f"{cid}.jpeg")
+                arc = f"captures/{cap_name}"
+                if arc in used_names:
+                    arc = f"captures/{cid}_{cap_name}"
+                used_names.add(arc)
+                url = f"{server.API_BASE}api/v2/captures/{cid}/download/{cap_name}"
+                r = requests.get(url, timeout=30)
+                r.raise_for_status()
+                z.writestr(arc, r.content)
+
+            for v in vids:
+                vid = v.get("id")
+                if not vid:
+                    continue
+                mp4_path = SAVED_VIDEOS_DIR / f"{vid}.mp4"
+                if not mp4_path.exists():
+                    continue
+                human = _safe_filename(v.get("name"), f"video_{vid}")
+                human = _ensure_ext(human, ".mp4")
+                arc = f"videos/{human}"
+                if arc in used_names:
+                    arc = f"videos/{vid}_{human}"
+                used_names.add(arc)
+                z.write(str(mp4_path), arcname=arc)
+        return {"ok": True, "id": zip_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Zip build failed: {e}")
+    
+@app.get("/zip/get/{zip_id}")
+def zip_get(zip_id: str):
+    zip_path = Path(__file__).resolve().parent / "zip_outputs" / f"gallery_{zip_id}.zip"
+    if not zip_path.exists():
+        raise HTTPException(status_code=404, detail="Zip not found")
+    return FileResponse(
+        str(zip_path),
+        media_type="application/zip",
+        filename=f"gallery_{zip_id}.zip",
+    )
 
 
 @app.get("/actions/{action_id}")
@@ -595,17 +740,52 @@ def clear_analysis(capture_id: str):
 
 @app.post("/settings/camera/apply")
 def apply_camera_settings(req: CameraSettingsRequest):
-    """
-    Apply Pi camera settings. This is the only settings button with a payload.
-    We forward whatever payload the server.py expects.
-    """
     try:
-        payload = req.model_dump(exclude_none=True)
-        out = server.settings(payload)
-        return {"ok": True, "result": out}
+        s = requests.get(f"{server.API_BASE}api/v2/instrument/settings", timeout=10)
+        s.raise_for_status()
+        full = s.json()
+        cam = full.get("camera") or {}
+        pic = cam.get("picamera") or {}
+        res_map = {
+            "higher": [832, 624],
+            "normal": [640, 480],
+        }
+        bitrate_map = {
+            "max": -1,
+            "high": 25_000_000,
+            "normal": 17_000_000,
+            "low": 5_000_000,
+            "verylow": 2_500_000,
+        }
+        if req.jpegQuality is not None:
+            cam["jpeg_quality"] = int(req.jpegQuality)
+
+        if req.streamResolution is not None:
+            cam["stream_resolution"] = res_map.get(req.streamResolution, cam.get("stream_resolution", [832, 624]))
+
+        if req.cameraBitrate is not None:
+            cam["mjpeg_bitrate"] = bitrate_map.get(req.cameraBitrate, cam.get("mjpeg_bitrate", -1))
+        pic["exposure_mode"] = "off"
+        pic["awb_mode"] = "off"
+        if req.exposure is not None:
+            pic["shutter_speed"] = int(req.exposure)
+        if req.analogueGain is not None:
+            pic["analog_gain"] = float(req.analogueGain)
+        if req.digitalGain is not None:
+            pic["digital_gain"] = float(req.digitalGain)
+        if req.cameraFramerate is not None:
+            pic["framerate"] = float(req.cameraFramerate)
+        if req.wbR is not None or req.wbB is not None:
+            r = float(req.wbR if req.wbR is not None else (pic.get("awb_gains") or [1.0, 1.0])[0])
+            b = float(req.wbB if req.wbB is not None else (pic.get("awb_gains") or [1.0, 1.0])[1])
+            pic["awb_gains"] = [r, b]
+        cam["picamera"] = pic
+        full["camera"] = cam
+        r = requests.put(f"{server.API_BASE}api/v2/instrument/settings", json=full, timeout=15)
+        r.raise_for_status()
+        return {"ok": True, "result": r.json()}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Apply camera settings failed: {e}")
-
 
 @app.post("/settings/calibration/full_autocalibrate")
 def calibration_full_autocalibrate():
@@ -659,6 +839,171 @@ def mapping_autocalibrate_using_camera():
         return {"ok": True, "result": out}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Mapping autocalibrate failed: {e}")
+    
+@app.get("/csv/gallery")
+def csv_gallery():
+    """
+    Download a CSV containing all captures + saved videos, including:
+    - id, type, name, time
+    - notes
+    - tags (semicolon-separated)
+    - annotations (JSON string)
+    - analysis (JSON string) when present
+    """
+    try:
+        caps = server.listCaptures() or []
+        videos = []
+        for p in SAVED_VIDEOS_DIR.glob("*.json"):
+            try:
+                meta = json.loads(p.read_text(encoding="utf-8"))
+                vid = meta.get("id")
+                if not vid:
+                    continue
+                mp4_path = SAVED_VIDEOS_DIR / f"{vid}.mp4"
+                if not mp4_path.exists():
+                    continue
+                videos.append(meta)
+            except Exception:
+                pass
+        def _time_key(x):
+            return x.get("time", "") or ""
+        videos.sort(key=_time_key, reverse=True)
+        output = io.StringIO()
+        writer = csv.writer(output)
+        header = [
+            "type",
+            "id",
+            "name",
+            "time",
+            "notes",
+            "tags",
+            "annotations_json",
+            "analysis_json",
+        ]
+        writer.writerow(header)
+        for c in caps:
+            cid = c.get("id", "")
+            name = c.get("name", "") or ""
+            time_s = c.get("time", "") or ""
+
+            ann = c.get("annotations") or {}
+            notes = ann.get("Notes", "") if isinstance(ann, dict) else ""
+            tags = c.get("tags") or []
+            if not isinstance(tags, list):
+                tags = []
+
+            writer.writerow([
+                "image",
+                cid,
+                name,
+                time_s,
+                notes,
+                ";".join([str(t).strip() for t in tags if str(t).strip()]),
+                json.dumps(ann, ensure_ascii=False),
+                "",
+            ])
+        for v in videos:
+            vid = v.get("id", "")
+            name = v.get("name", "") or ""
+            time_s = v.get("time", "") or ""
+
+            ann = v.get("annotations") or {}
+            notes = ann.get("Notes", "") if isinstance(ann, dict) else ""
+            tags = v.get("tags") or []
+            if not isinstance(tags, list):
+                tags = []
+
+            analysis = v.get("analysis") or {}
+
+            writer.writerow([
+                "video",
+                vid,
+                name,
+                time_s,
+                notes,
+                ";".join([str(t).strip() for t in tags if str(t).strip()]),
+                json.dumps(ann, ensure_ascii=False),
+                json.dumps(analysis, ensure_ascii=False) if analysis else "",
+            ])
+
+        output.seek(0)
+        csv_bytes = output.getvalue().encode("utf-8")
+
+        filename = f"gallery_export_{time.strftime('%Y%m%d_%H%M%S')}.csv"
+        headers = {
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+
+        return StreamingResponse(
+            io.BytesIO(csv_bytes),
+            media_type="text/csv; charset=utf-8",
+            headers=headers,
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"CSV export failed: {e}")
+    
+@app.get("/export/csv")
+def export_gallery_csv():
+    """
+    Export a CSV containing both captures (from OpenFlexure) and saved videos (from saved_videos/*.json).
+    Includes annotations/tags/notes and any saved analysis.
+    """
+    rows = []
+    try:
+        caps = server.listCaptures() or []
+    except Exception:
+        caps = []
+
+    for c in caps:
+        ann = c.get("annotations") or {}
+        tags = c.get("tags") or []
+        rows.append({
+            "type": "image",
+            "id": c.get("id", ""),
+            "name": c.get("name") or ann.get("DisplayName") or "capture",
+            "time": c.get("time", ""),
+            "format": c.get("format") or "jpeg",
+            "notes": ann.get("Notes", ""),
+            "tags": ";".join([str(t).strip() for t in tags if str(t).strip()]),
+            "annotations_json": _safe_json(ann),
+            "analysis_json": "", 
+        })
+    try:
+        for p in SAVED_VIDEOS_DIR.glob("*.json"):
+            try:
+                meta = json.loads(p.read_text(encoding="utf-8"))
+                ann = meta.get("annotations") or {}
+                tags = meta.get("tags") or []
+                analysis = meta.get("analysis") or {}
+                rows.append({
+                    "type": "video",
+                    "id": meta.get("id", ""),
+                    "name": meta.get("name") or "video",
+                    "time": meta.get("time", ""),
+                    "format": meta.get("format") or "mp4",
+                    "notes": ann.get("Notes", ""),
+                    "tags": ";".join([str(t).strip() for t in tags if str(t).strip()]),
+                    "annotations_json": _safe_json(ann),
+                    "analysis_json": _safe_json(analysis),
+                })
+            except Exception:
+                continue
+    except Exception:
+        pass
+    fieldnames = [
+        "type", "id", "name", "time", "format",
+        "notes", "tags",
+        "annotations_json", "analysis_json",
+    ]
+    buf = io.StringIO()
+    w = csv.DictWriter(buf, fieldnames=fieldnames, extrasaction="ignore")
+    w.writeheader()
+    for r in rows:
+        w.writerow(r)
+    csv_text = buf.getvalue()
+    headers = {"Content-Disposition": 'attachment; filename="gallery_export.csv"'}
+    return StreamingResponse(iter([csv_text]), media_type="text/csv; charset=utf-8", headers=headers)
 
 
 # ---------------------------

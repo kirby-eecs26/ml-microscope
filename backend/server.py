@@ -392,12 +392,12 @@ def delete_video_recording(recording_id: str) -> bool:
 # CAMERA SETTINGS
 def settings(payload: dict, timeout=2.0):
     try:
-        r = requests.post(f"{API_BASE}api/v2/instrument/settings", json=payload, timeout=timeout)
+        r = requests.put(f"{API_BASE}api/v2/instrument/settings", json=payload, timeout=timeout)
         r.raise_for_status()
         return r.json()
-
     except requests.exceptions.RequestException as e:
         print(f"{e} PI Camera Settings error")
+        raise
 
 
 # CALIBRATION

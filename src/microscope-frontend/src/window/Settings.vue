@@ -103,8 +103,7 @@
               <label>Stream resolution</label>
               <select class="themeDropdown wide" v-model="streamResolution">
                 <option value="higher">Higher (832, 624)</option>
-                <option value="medium">Medium (640, 480)</option>
-                <option value="lower">Lower (416, 312)</option>
+                <option value="normal">Normal (640, 480)</option>
               </select>
             </div>
           </div>
@@ -118,9 +117,10 @@
               <label>Camera bitrate</label>
               <select class="themeDropdown wide" v-model="cameraBitrate">
                 <option value="max">Maximum (unlimited)</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
+                <option value="high">High (25 Mbps)</option>
+                <option value="normal">Normal (17 Mbps)</option>
+                <option value="low">Low (5 Mbps)</option>
+                <option value="verylow">Very low (2.5 Mbps)</option>
               </select>
             </div>
 
@@ -129,7 +129,7 @@
               <select class="themeDropdown wide" v-model="cameraFramerate">
                 <option :value="30">Normal (30fps)</option>
                 <option :value="15">Low (15fps)</option>
-                <option :value="60">High (60fps)</option>
+                <option :value="10">Very low (10fps)</option>
               </select>
             </div>
           </div>
@@ -195,7 +195,7 @@ const camAnalogueGain = ref(2.10)
 const camDigitalGain = ref(1.0)
 const wbR = ref(1.41)
 const wbB = ref(1.49)
-const jpegQuality = ref(95)
+const jpegQuality = ref(100)
 const streamResolution = ref('higher')
 const cameraBitrate = ref('max')
 const cameraFramerate = ref(30)
@@ -214,17 +214,18 @@ const filenamePrefix = ref('image')
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8000'
 
-async function postJson(path, body = null) {
+async function requestJson(method, path, body = null) {
   const res = await fetch(`${API_BASE}${path}`, {
-    method: 'POST',
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    method,
+    headers: body ? { "Content-Type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : null,
-  })
+  });
+
   if (!res.ok) {
-    const txt = await res.text()
-    throw new Error(`${url} failed: ${res.status} ${txt}`)
+    const txt = await res.text().catch(() => "");
+    throw new Error(`${path} failed: ${res.status} ${txt}`);
   }
-  return await res.json()
+  return res.json().catch(() => ({}));
 }
 
 function saveDisplaySettings() {
@@ -236,18 +237,39 @@ function saveDisplaySettings() {
   })
 }
 
-function applyCameraSettings() {
-  console.log('APPLY CAMERA', {
-    exposure: camExposure.value,
-    analogueGain: camAnalogueGain.value,
-    digitalGain: camDigitalGain.value,
-    wbR: wbR.value,
-    wbB: wbB.value,
-    jpegQuality: jpegQuality.value,
-    streamResolution: streamResolution.value,
-    cameraBitrate: cameraBitrate.value,
-    cameraFramerate: cameraFramerate.value,
-  })
+async function applyCameraSettings() {
+  try {
+    const resMap = {
+      higher: [832, 624],
+      normal: [640, 480],
+    };
+    const bitrateMap = {
+      max: -1,
+      high: 25_000_000,
+      normal: 17_000_000,
+      low: 5_000_000,
+      verylow: 2_500_000,
+    };
+    const payload = {
+      camera: {
+        mjpeg_bitrate: bitrateMap[cameraBitrate.value] ?? -1,
+        jpeg_quality: Number(jpegQuality.value ?? 95),
+        stream_resolution: resMap[streamResolution.value] ?? [832, 624],
+      },
+      picamera: {
+        shutter_speed: Number(camExposure.value ?? 0),
+        analogue_gain: Number(camAnalogueGain.value ?? 1.0),
+        digital_gain: Number(camDigitalGain.value ?? 1.0),
+        framerate: Number(cameraFramerate.value ?? 30),
+        awb_gains: [Number(wbR.value ?? 1.0), Number(wbB.value ?? 1.0)],
+      },
+    };
+
+    const out = await requestJson("POST", "/settings/camera/apply", payload);
+    console.log("APPLY SETTINGS OK", out);
+  } catch (e) {
+    console.error("APPLY SETTINGS ERROR", e);
+  }
 }
 
 async function runCalibration(kind) {
