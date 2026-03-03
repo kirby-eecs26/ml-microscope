@@ -13,8 +13,6 @@ Microscope system that captures cell images and uses AI/ML image analysis to aut
 
 ## System Architecture
 
-*TO-DO: Front-end and backend add which programs, libraries, and other resources used to build this app. You can omit any default libraries (e.g., Python ships with the 'os' library already installed).*
-
 Backend Libraries:
 - OpenCV: Segmentation based ML/AI model that detects and categorizes shapes in images for counting cells vs other objects in the sample.
 - NumPy: Array and buffer handling for image bytes
@@ -91,9 +89,6 @@ ml-microscope/
 ## Setup and Installation
 
 First build the installer then install the full desktop application.
-
-*TO-DO: Frontend and back-end provide simple instructions for how a visitor to this repo can download and install our app.*
-
 
 ### Step 1 Building Vue Dist:
 

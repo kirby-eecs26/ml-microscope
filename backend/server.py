@@ -25,7 +25,6 @@ def apiHealth(timeout=2.0) -> bool:
     """
     requests api health diagnostics that checks that motors or in order and that the
     api has stable connection, raises error if connection and/or microscope unstable
-    todo: add error to log
     :param timeout:
     :return: bool of good api health or not
     """
@@ -63,7 +62,6 @@ def checkCords(x, y, z) -> bool:
 def get_position(timeout=8.0) -> dict:
     """
     Returns current stage position from OpenFlexure. raises error if api call wrong then catches
-    todo: add exceptions to logging
     :param timeout:
     :return: dicts of the xyz coordinate positions
     """
@@ -79,7 +77,6 @@ def moveButton(x: int, y: int, z: int, timeout = 60.0):
     check new move coordinates are in bounds then request api to move lense and camera to
     new position, if coords not in bounds raise exception, if response status is an error raise
     exception, catch exeptions and put in log
-    todo: add exceptions to logging
     :param x:
     :param y:
     :param z:
@@ -152,6 +149,10 @@ def listCaptures(timeout = 2.0):
 
 # LIVE FEED
 def mjpeg_stream_url():
+    '''
+    returns live feed from the microscope camera
+    :return:
+    '''
     try:
         return f"{API_BASE}api/v2/streams/mjpeg"
     except requests.exceptions.ConnectionError:
@@ -217,6 +218,14 @@ def _resize_keep_aspect(bgr, max_h=1080):
 
 
 def _record_worker(recording_id: str, fpm: int, max_frames: int, max_h: int):
+    '''
+
+    :param recording_id:
+    :param fpm:
+    :param max_frames:
+    :param max_h:
+    :return:
+    '''
     stop_event = RECORDINGS[recording_id]["stop"]
     raw_path = RECORDINGS[recording_id]["path_raw"]
     final_path = RECORDINGS[recording_id]["path_final"]
@@ -265,6 +274,12 @@ def _record_worker(recording_id: str, fpm: int, max_frames: int, max_h: int):
 
 
 def _transcode_h264(src_path: str, dst_path: str):
+    '''
+
+    :param src_path:
+    :param dst_path:
+    :return:
+    '''
     cmd = [
         "ffmpeg", "-y",
         "-i", src_path,
@@ -278,6 +293,13 @@ def _transcode_h264(src_path: str, dst_path: str):
 
 
 def start_video_recording(fpm: int, max_frames: int = 300, max_h: int = 1080) -> dict:
+    '''
+
+    :param fpm:
+    :param max_frames:
+    :param max_h:
+    :return:
+    '''
     if fpm not in (30, 60, 1500):
         raise ValueError("Only 30, 60, or 1500 FPM allowed")
 
@@ -309,6 +331,11 @@ def start_video_recording(fpm: int, max_frames: int = 300, max_h: int = 1080) ->
 
 
 def stop_video_recording(recording_id: str) -> dict:
+    '''
+    stops recording
+    :param recording_id:
+    :return:
+    '''
     rec = RECORDINGS.get(recording_id)
     if not rec:
         raise KeyError("Unknown recording id")
@@ -322,6 +349,11 @@ def stop_video_recording(recording_id: str) -> dict:
 
 
 def get_video_path(recording_id: str) -> str:
+    '''
+
+    :param recording_id:
+    :return:
+    '''
     rec = RECORDINGS.get(recording_id)
     print("get_video_path lookup:", recording_id)
     print("known ids:", list(RECORDINGS.keys()))
@@ -331,6 +363,11 @@ def get_video_path(recording_id: str) -> str:
 
 
 def get_video_status(recording_id: str) -> dict:
+    '''
+
+    :param recording_id:
+    :return:
+    '''
     rec = RECORDINGS.get(recording_id)
     if not rec:
         raise KeyError("Unknown recording id")
@@ -338,6 +375,11 @@ def get_video_status(recording_id: str) -> dict:
 
 
 def delete_capture(capture_id: str) -> bool:
+    '''
+    delects capture from pi
+    :param capture_id:
+    :return:
+    '''
     url = f"{API_BASE}api/v2/captures/{capture_id}"
     r = requests.delete(url, timeout=10)
 
@@ -346,6 +388,11 @@ def delete_capture(capture_id: str) -> bool:
     raise RuntimeError(f"Delete failed: {r.status_code} {r.text}")
 
 def delete_video_recording(recording_id: str) -> bool:
+    '''
+    deletes video recording
+    :param recording_id:
+    :return:
+    '''
     rec = RECORDINGS.get(recording_id)
     if not rec:
         raw = VIDEO_DIR / f"{recording_id}_raw.mp4"
@@ -383,14 +430,17 @@ def delete_video_recording(recording_id: str) -> bool:
 
     return removed
 
-# if __name__ == "__main__":
-#     listCaptures()
-#
 
 # SETTINGS
 
 # CAMERA SETTINGS
 def settings(payload: dict, timeout=2.0):
+    '''
+    display settings
+    :param payload:
+    :param timeout:
+    :return:
+    '''
     try:
         r = requests.put(f"{API_BASE}api/v2/instrument/settings", json=payload, timeout=timeout)
         r.raise_for_status()
@@ -402,6 +452,11 @@ def settings(payload: dict, timeout=2.0):
 
 # CALIBRATION
 def full_autocalibrate(timeout=2.0):
+    '''
+    does full calibration function
+    :param timeout:
+    :return:
+    '''
     try:
         r = requests.post(f"{API_BASE}api/v2/extensions/org.openflexure.calibration.picamera/recalibrate", timeout=timeout)
         r.raise_for_status()
@@ -423,7 +478,7 @@ def auto_gain_shutter_speed(timeout=2.0):
 
 def auto_white_balance(timeout=2.0):
     '''
-
+    calls auto balance white
     :param timeout:
     :return:
     '''
@@ -438,7 +493,7 @@ def auto_white_balance(timeout=2.0):
 
 def auto_flat_field_correction(timeout=2.0):
     '''
-
+    calls auto flat field correction
     :param timeout:
     :return:
     '''
@@ -453,7 +508,7 @@ def auto_flat_field_correction(timeout=2.0):
 
 def disable_flat_field_correction(timeout=2.0):
     '''
-
+    calls auto flat field correction
     :param timeout:
     :return:
     '''
@@ -469,7 +524,7 @@ def disable_flat_field_correction(timeout=2.0):
 # Camera/stage mapping
 def autocalibrate_using_camera(timeout=2.0):
     '''
-
+    calls auto calibration using camera
     :param timeout:
     :return:
     '''
