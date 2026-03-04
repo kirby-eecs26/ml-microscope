@@ -1,0 +1,332 @@
+/* LIGHT MODE DEFAULTS */
+
+:root{
+  --content-bg:#d9d9d9;
+  --sidebar-bg:#f2f2f2;
+  --sidebar-hover:#e6e6e6;
+  --sidebar-active:#1f4b7a;
+
+  --text-dark:#111;
+  --text:#111;
+
+  --border:#d0d0d0;
+  --surface:#ffffff;
+  --surface-2:#f2f2f2;
+
+  --btn-bg:#1f4b7a;
+  --btn-text:#ffffff;
+
+  --muted:#666;
+}
+
+
+/* DARK MODE */
+
+html.theme-dark{
+  /* main backgrounds */
+  --content-bg:#2b2b2b;
+  --sidebar-bg:#333333;
+  --surface:#615959;
+  --surface-2:#4a4444;
+
+  /* hover/active */
+  --sidebar-hover:#404040;
+  --sidebar-active:#2f5d91;
+
+  /* text */
+  --text-dark:#ffffff;
+  --text:#ffffff;
+
+  /* borders */
+  --border:#555555;
+
+  /* buttons */
+  --btn-bg:#2f5d91;
+  --btn-text:#ffffff;
+
+  /* muted text */
+  --muted:#bdbdbd;
+
+  color-scheme: dark;
+}
+
+
+/* =========================
+   GLOBAL APPLICATION
+   ========================= */
+
+body{
+  background: var(--content-bg);
+  color: var(--text);
+}
+
+#app{
+  background: var(--content-bg);
+  color: var(--text);
+}
+
+
+/* Sidebars / nav rails */
+
+aside,
+.sidebar,
+.settingsSidebar{
+  background: var(--sidebar-bg) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+
+/* Main content regions */
+
+main,
+section,
+.content,
+.settingsContent{
+  background: var(--content-bg) !important;
+  color: var(--text) !important;
+}
+
+
+/* Panels / cards */
+
+.panel,
+.card,
+.imageCard,
+.settingsPage .settingsSidebar,
+.settingsPage .settingsContent{
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+
+/* Page workspaces */
+
+.galleryPage,
+.viewPage,
+.movePage,
+.capturePage{
+  background: var(--content-bg) !important;
+  color: var(--text) !important;
+}
+
+.galleryContent,
+.galleryContainer,
+.galleryMain,
+.mainPanel,
+.workspace{
+  background: var(--content-bg) !important;
+  color: var(--text) !important;
+}
+
+
+/* =========================
+   TEXT VISIBILITY FIX
+   ========================= */
+
+html.theme-dark h1,
+html.theme-dark h2,
+html.theme-dark h3,
+html.theme-dark h4{
+  color:#ffffff !important;
+}
+
+/* section titles like MOVE / IMAGE / VIDEO */
+
+html.theme-dark .sectionTitle,
+html.theme-dark .panelTitle,
+html.theme-dark .headerLabel,
+html.theme-dark .title{
+  color:#ffffff !important;
+}
+
+/* form labels */
+
+html.theme-dark label{
+  color:#ffffff !important;
+}
+
+/* small axis labels (X Y Z etc) */
+
+html.theme-dark .axisLabel,
+html.theme-dark .smallLabel{
+  color:#ffffff !important;
+}
+
+/* muted helper text */
+
+html.theme-dark .muted,
+html.theme-dark .helpText{
+  color:var(--muted) !important;
+}
+
+
+/* separators */
+
+hr,
+.divider{
+  border-color: var(--border) !important;
+}
+
+
+/* =========================
+   INPUTS
+   ========================= */
+
+input,
+select,
+textarea{
+  background: var(--surface-2) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+}
+
+input::placeholder,
+textarea::placeholder{
+  color: rgba(255,255,255,0.55);
+}
+
+
+/* =========================
+   BUTTONS
+   ========================= */
+
+button,
+.primaryAction,
+.secondaryAction{
+  background: var(--btn-bg);
+  color: var(--btn-text);
+}
+
+.secondaryAction{
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+/* Gallery search bar */
+
+html.theme-dark .galleryTopBar,
+html.theme-dark .galleryHeader,
+html.theme-dark .topBar,
+html.theme-dark .searchBar,
+html.theme-dark .searchContainer {
+  background: var(--sidebar-bg) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+
+/* search input */
+
+html.theme-dark .galleryTopBar input,
+html.theme-dark .galleryHeader input,
+html.theme-dark input[type="search"] {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+}
+
+
+/* Settings nav color fix */
+
+html.theme-dark .settingsSidebar {
+  background: #242424 !important;
+  border-right: 1px solid var(--border) !important;
+}
+
+html.theme-dark .settingsSidebar .sectionTitle,
+html.theme-dark .settingsSidebar .navItem {
+  color: var(--text) !important;
+}
+
+html.theme-dark .settingsSidebar .navItem:hover {
+  background: #303030 !important;
+}
+
+html.theme-dark .settingsSidebar .navItem.active {
+  background: var(--sidebar-active) !important;
+  color: #fff !important;
+}
+
+
+/* Settings contrast */
+
+html.theme-dark .settingsContent{
+  background: var(--content-bg) !important;
+}
+
+html.theme-dark .settingGroup{
+  background: transparent;
+  border-bottom: 1px solid var(--border);
+}
+
+html.theme-dark .contentTitle{
+  color: #8ab4f8 !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+
+/* Gallery empty state */
+
+html.theme-dark .emptyState,
+html.theme-dark .galleryEmpty,
+html.theme-dark .noImagesText{
+  color: var(--muted) !important;
+}
+
+
+/* Move controls panel */
+
+html.theme-dark .moveControls,
+html.theme-dark .movePanel,
+html.theme-dark .leftControls,
+html.theme-dark .controlsPanel{
+  background: var(--surface) !important;
+  border-right: 1px solid var(--border) !important;
+}
+
+html.theme-dark .moveControls input{
+  background: var(--surface-2) !important;
+}
+
+
+/* icon buttons */
+
+html.theme-dark .iconBtn,
+html.theme-dark .smallBtn{
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border) !important;
+}
+
+/* about page */
+
+html.theme-dark .aboutPage,
+html.theme-dark .aboutPage .content,
+html.theme-dark .aboutPage .infoGrid,
+html.theme-dark .aboutPage .infoGrid p,
+html.theme-dark .aboutPage .version {
+  color: #ffffff !important;
+}
+
+/* Strong labels (Device Name, Server Version, etc.) */
+html.theme-dark .aboutPage .infoGrid strong,
+html.theme-dark .aboutPage .version strong {
+  color: #ffffff !important;
+}
+
+/* Titles in About */
+html.theme-dark .aboutPage .mainTitle,
+html.theme-dark .aboutPage .sectionTitle {
+  color: #8ab4f8 !important; /* readable blue like your settings header */
+}
+
+/* Section divider line so it’s visible in dark */
+html.theme-dark .aboutPage .section {
+  border-bottom: 1px solid var(--border) !important;
+}
+
+/* Link colors in dark mode */
+html.theme-dark .aboutPage a,
+html.theme-dark .aboutPage a:visited {
+  color: #8ab4f8 !important;
+}
