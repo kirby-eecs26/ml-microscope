@@ -412,9 +412,62 @@ html.theme-dark .capturePage .miniInput {
   border-color: #bdbdbd !important;
 }
 
+/* Capture modal placeholder text darker */
+.capturePage input::placeholder,
+.capturePage textarea::placeholder {
+  color: #555 !important;   /* dark grey */
+  opacity: 1 !important;    /* remove transparent effect */
+}
+
+/* also cover mini inputs (key/value/tag fields) */
+.capturePage .miniInput::placeholder {
+  color: #555 !important;
+  opacity: 1 !important;
+}
+
 html.theme-dark .galleryPage .topbar,
 body.theme-dark .galleryPage .topbar,
 .theme-dark .galleryPage .topbar{
-  background: #a9a9a9 !important;
-  border-bottom-color: #a9a9a9 !important;
+  background: #2b2b2b  !important;
+  border-bottom-color: #2b2b2b  !important;
 }
+
+/* 1) Generic “muted/section” headings that often use opacity */
+html.theme-dark .settingsPage .groupTitle,
+html.theme-dark .settingsPage .header,
+html.theme-dark .settingsPage .title,
+html.theme-dark .settingsPage .sectionTitle,
+html.theme-dark .settingsPage .subTitle,
+html.theme-dark .settingsPage .subtitle,
+html.theme-dark .settingsPage .label,
+html.theme-dark .settingsPage .fieldLabel,
+html.theme-dark .settingsPage .sectionLabel,
+html.theme-dark .settingsPage .muted,
+html.theme-dark .settingsPage .hint,
+html.theme-dark .settingsPage .helpText,
+html.theme-dark .settingsPage legend {
+  color: #fff !important;
+  opacity: 1 !important;
+}
+
+/* 2) If your Settings page wrapper class is NOT "settingsPage", this catches it anyway */
+html.theme-dark [class*="settings"] .groupTitle,
+html.theme-dark [class*="settings"] .header,
+html.theme-dark [class*="settings"] .label,
+html.theme-dark [class*="settings"] legend {
+  color: #fff !important;
+  opacity: 1 !important;
+}
+
+/* 3) Common framework label classes (one of these is often the culprit) */
+html.theme-dark .v-label,
+html.theme-dark .v-field-label,
+html.theme-dark .v-input__label,
+html.theme-dark .MuiFormLabel-root,
+html.theme-dark .MuiInputLabel-root,
+html.theme-dark .form-label,
+html.theme-dark .form-text {
+  color: #fff !important;
+  opacity: 1 !important;
+}
+
