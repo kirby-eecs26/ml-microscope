@@ -502,6 +502,9 @@ async function startRecording() {
       result?.id ??
       result?.recording?.id ??
       null;
+    console.log("[video] start result:", result);
+    console.log("[video] recordingId:", recordingId.value, "isMotion:", isMotion, "t:", Date.now());
+
     if (!recordingId.value) {
       throw new Error("Start succeeded but no recording id returned from backend");
     }
@@ -524,6 +527,7 @@ async function startRecording() {
 
 async function stopRecording(isAuto = false) {
   try {
+    console.log("[video] stop called", { isAuto, t: Date.now(), id: recordingId.value });
     if (!recordingId.value) return;
     if (motionStopTimer.value) clearTimeout(motionStopTimer.value);
     motionStopTimer.value = null;
@@ -531,6 +535,7 @@ async function stopRecording(isAuto = false) {
     videoBusyMode.value = "stop";
     videoStatus.value = isAuto ? "Auto-stopping motion clip..." : "Stopping recording...";
     const result = await stopVideo(recordingId.value);
+    console.log("[video] stop result:", result, "t:", Date.now());
     recordedVideoId.value =
       result?.id ??
       result?.video_id ??

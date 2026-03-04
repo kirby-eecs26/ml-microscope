@@ -8,6 +8,7 @@ import backend.error
 import requests
 import cv2
 import os
+import sys
 import uuid
 import numpy as np
 import threading
@@ -185,20 +186,24 @@ def captureVideo(fpm: int, payload: dict, duration: float = MAX_DURATION_SEC) ->
 
 
 def _iter_mjpeg_frames(url: str, timeout=10):
-    """
-    Yields JPEG bytes from a MJPEG stream.
-    """
     r = requests.get(url, stream=True, timeout=timeout)
     r.raise_for_status()
-
     buf = b""
-    for chunk in r.iter_content(chunk_size=4096):
+    for chunk in r.iter_content(chunk_size=65536):
         if not chunk:
             continue
         buf += chunk
-        a = buf.find(b"\xff\xd8")
-        b = buf.find(b"\xff\xd9")
-        if a != -1 and b != -1 and b > a:
+        while True:
+            a = buf.find(b"\xff\xd8")
+            if a == -1:
+                if len(buf) > 2_000_000:
+                    buf = buf[-200_000:]
+                break
+            b = buf.find(b"\xff\xd9", a + 2)
+            if b == -1:
+                buf = buf[a:]
+                break
+
             jpg = buf[a:b+2]
             buf = buf[b+2:]
             yield jpg
@@ -216,79 +221,129 @@ def _resize_keep_aspect(bgr, max_h=1080):
     new_h = int(h * scale)
     return cv2.resize(bgr, (new_w, new_h), interpolation=cv2.INTER_AREA)
 
+def find_ffmpeg_exe() -> Path | None:
+    if getattr(sys, "frozen", False):
+        exe_dir = Path(sys.executable).resolve().parent
+        p = exe_dir / "ffmpeg.exe"
+        if p.exists():
+            return p
+        p = exe_dir / "vendor" / "ffmpeg" / "ffmpeg.exe"
+        if p.exists():
+            return p
+        meipass = Path(getattr(sys, "_MEIPASS", exe_dir))
+        p = meipass / "ffmpeg.exe"
+        if p.exists():
+            return p
+        p = meipass / "vendor" / "ffmpeg" / "ffmpeg.exe"
+        if p.exists():
+            return p
+        return None
+    repo_guess = Path(__file__).resolve().parents[1] / "vendor" / "ffmpeg" / "ffmpeg.exe"
+    if repo_guess.exists():
+        return repo_guess
+    return None
+
 
 def _record_worker(recording_id: str, fpm: int, max_frames: int, max_h: int):
-    '''
+    """
+    Record frames from MJPEG stream into an mp4.
 
-    :param recording_id:
-    :param fpm:
-    :param max_frames:
-    :param max_h:
-    :return:
-    '''
+    - For fpm == 1500 (motion mode): write EVERY frame we can decode, until max_frames or stop.
+    - For other fpm: sample at interval = 60/fpm seconds.
+    """
     stop_event = RECORDINGS[recording_id]["stop"]
     raw_path = RECORDINGS[recording_id]["path_raw"]
     final_path = RECORDINGS[recording_id]["path_final"]
     mjpeg_url = mjpeg_stream_url()
+
+    is_motion = (fpm == 1500)
     interval = 60.0 / float(fpm)
+
     writer = None
+    grabbed = 0
+    decoded = 0
     written = 0
     next_t = time.time()
+
     try:
         for jpg in _iter_mjpeg_frames(mjpeg_url):
             if stop_event.is_set():
                 break
-            now = time.time()
-            if now < next_t:
-                continue
-            next_t = now + interval
+
+            grabbed += 1
+
+            # Throttle only for non-motion modes (timelapse)
+            if not is_motion:
+                now = time.time()
+                if now < next_t:
+                    continue
+                next_t = now + interval
+
             data = np.frombuffer(jpg, dtype=np.uint8)
             frame_bgr = cv2.imdecode(data, cv2.IMREAD_COLOR)
             if frame_bgr is None:
                 continue
+            decoded += 1
+
             frame_bgr = _resize_keep_aspect(frame_bgr, max_h=max_h)
+
             if writer is None:
                 h, w = frame_bgr.shape[:2]
-                playback_fps = 10.0
+                playback_fps = 25.0 if is_motion else 10.0  # motion clip looks like 25fps
                 fourcc = cv2.VideoWriter_fourcc(*"mp4v")
                 writer = cv2.VideoWriter(str(raw_path), fourcc, playback_fps, (w, h))
+                if not writer.isOpened():
+                    raise RuntimeError("Could not open VideoWriter (mp4v)")
+
             writer.write(frame_bgr)
             written += 1
+
             if written >= max_frames:
                 break
+
     finally:
+        print(f"[record] id={recording_id} grabbed={grabbed} decoded={decoded} written={written} fpm={fpm}")
+
         if writer is not None:
             writer.release()
+
         meta = RECORDINGS[recording_id]["meta"]
         meta["frames_written"] = written
         meta["finished_at"] = time.time()
         meta["done"] = True
+
+        # Default to raw so stop() always has a path even if transcode fails
+        RECORDINGS[recording_id]["path"] = str(raw_path)
+
         try:
-            _transcode_h264(str(raw_path), str(final_path))
+            out_fps = None
+            target_sec = meta.get("target_sec")
+            if is_motion and target_sec and written > 0:
+                out_fps = written / float(target_sec)
+
+            _transcode_h264(str(raw_path), str(final_path), out_fps=out_fps)
             RECORDINGS[recording_id]["path"] = str(final_path)
             meta["transcoded"] = True
         except Exception as e:
             meta["transcoded"] = False
             meta["transcode_error"] = str(e)
-            RECORDINGS[recording_id]["path"] = str(raw_path)
 
 
-def _transcode_h264(src_path: str, dst_path: str):
-    '''
+def _transcode_h264(src_path: str, dst_path: str, out_fps: float | None = None):
+    ffmpeg = find_ffmpeg_exe()
+    exe = str(ffmpeg) if ffmpeg and ffmpeg.exists() else "ffmpeg"
 
-    :param src_path:
-    :param dst_path:
-    :return:
-    '''
-    cmd = [
-        "ffmpeg", "-y",
-        "-i", src_path,
+    cmd = [exe, "-y", "-i", src_path]
+    if out_fps and out_fps > 0:
+        cmd += ["-r", f"{out_fps:.3f}"]
+    cmd += [
         "-c:v", "libx264",
         "-pix_fmt", "yuv420p",
         "-preset", "veryfast",
         "-movflags", "+faststart",
         dst_path,
     ]
+
     subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
 
@@ -308,10 +363,12 @@ def start_video_recording(fpm: int, max_frames: int = 300, max_h: int = 1080) ->
     final_path = VIDEO_DIR / f"{recording_id}.mp4"
 
     stop_event = threading.Event()
+    target_sec = 5.0 if fpm == 1500 else None
     RECORDINGS[recording_id] = {
         "stop": stop_event,
         "path_raw": str(out_path),
         "path_final": str(final_path),
+        "path": str(out_path),
         "meta": {
             "id": recording_id,
             "fpm": fpm,
@@ -320,6 +377,7 @@ def start_video_recording(fpm: int, max_frames: int = 300, max_h: int = 1080) ->
             "started_at": time.time(),
             "done": False,
             "frames_written": 0,
+            "target_sec": target_sec,
         },
     }
 

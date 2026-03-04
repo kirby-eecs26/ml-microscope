@@ -286,12 +286,16 @@
               <!-- VIDEO -->
               <video
                 v-else
+                :key="(videoOverlayOn ? 'tracks' : 'orig') + '-' + (analysisItem?.id || '')"
                 class="viewerImg"
                 :src="videoOverlayOn && analysisResult?.overlayVideoUrl
                   ? analysisResult.overlayVideoUrl
                   : analysisItem?.url"
                 controls
                 playsinline
+                @error="onVideoError"
+                @loadedmetadata="onVideoMeta"
+                @canplay="onVideoCanPlay"
               ></video>
 
               <div v-if="analysisLoading" class="viewerOverlay">Analyzing...</div>
@@ -499,6 +503,8 @@ import { ref, computed, onMounted, watch } from "vue";
 import { listCaptures, deleteCapture, analyzeCapture, deleteTag } from "../api/imageApi";
 import { listVideos, deleteVideo, analyzeVideo } from "../api/videoApi";
 
+console.log("BUILD_MARKER_GALLERY", Date.now());
+
 const gallery = ref([
 ]); // will be loaded from backend
 const query = ref("");
@@ -617,6 +623,31 @@ function formatDate(d) {
 
 function isVideo(item) {
   return item?.type === "video";
+}
+
+function onVideoError(e) {
+  const v = e?.target;
+  console.log("[video] ERROR", {
+    src: v?.currentSrc,
+    networkState: v?.networkState,
+    readyState: v?.readyState,
+    error: v?.error ? { code: v.error.code, message: v.error.message } : null,
+  });
+}
+
+function onVideoMeta(e) {
+  const v = e?.target;
+  console.log("[video] loadedmetadata", {
+    src: v?.currentSrc,
+    duration: v?.duration,
+    videoWidth: v?.videoWidth,
+    videoHeight: v?.videoHeight,
+  });
+}
+
+function onVideoCanPlay(e) {
+  const v = e?.target;
+  console.log("[video] canplay", { src: v?.currentSrc, t: Date.now() });
 }
 
 /**

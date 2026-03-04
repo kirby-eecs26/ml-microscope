@@ -10,6 +10,7 @@ from pathlib import Path
 import subprocess
 import os
 import cv2
+import sys
 
 
 @dataclass
@@ -75,6 +76,28 @@ SENSITIVITY_PRESETS: dict[str, dict] = {
         "motile_blob_disp_thresh_px": 1.0,
     },
 }
+
+def find_ffmpeg_exe() -> Path | None:
+    if getattr(sys, "frozen", False):
+        exe_dir = Path(sys.executable).resolve().parent
+        p = exe_dir / "ffmpeg.exe"
+        if p.exists():
+            return p
+        p = exe_dir / "vendor" / "ffmpeg" / "ffmpeg.exe"
+        if p.exists():
+            return p
+        meipass = Path(getattr(sys, "_MEIPASS", exe_dir))
+        p = meipass / "ffmpeg.exe"
+        if p.exists():
+            return p
+        p = meipass / "vendor" / "ffmpeg" / "ffmpeg.exe"
+        if p.exists():
+            return p
+        return None
+    repo_guess = Path(__file__).resolve().parents[1] / "vendor" / "ffmpeg" / "ffmpeg.exe"
+    if repo_guess.exists():
+        return repo_guess
+    return None
 
 
 def _maybe_resize(frame_bgr: np.ndarray, max_w: Optional[int]) -> np.ndarray:
@@ -446,8 +469,10 @@ def render_motion_tracks_overlay(video_path: str, out_path: str, cfg: Optional[M
     writer.release()
     cap.release()
 
-    ffmpeg = Path(__file__).resolve().parents[1] / "vendor" / "ffmpeg" / "ffmpeg.exe"
-    if ffmpeg.exists():
+    ffmpeg = find_ffmpeg_exe()
+    print("[tracks] ffmpeg:", ffmpeg, "exists:", bool(ffmpeg and ffmpeg.exists()))
+
+    if ffmpeg and ffmpeg.exists():
         cmd = [
             str(ffmpeg),
             "-y",
