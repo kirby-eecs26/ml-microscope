@@ -366,4 +366,20 @@ function runAutofocus(mode) {
   align-items: center;
   justify-content: center;
 }
+
+:global(html.theme-dark) .movePage .controls {
+  background: #2b2b2b !important;
+  color: #fff !important;
+  border-right-color: rgba(255,255,255,0.15) !important;
+}
+
+:global(html.theme-dark) .movePage .groupTitle {
+  color: #fff !important;
+  opacity: 0.85 !important; /* override your 0.35 */
+}
+
+:global(html.theme-dark) .movePage .axis-label {
+  color: #fff !important;
+}
+
 </style>

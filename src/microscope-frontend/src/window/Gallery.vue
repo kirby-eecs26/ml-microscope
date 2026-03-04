@@ -107,13 +107,14 @@
         </button>
 
         <button
-          v-for="n in pageNumbers"
-          :key="n"
+          v-for="it in pageModel"
+          :key="it.type === 'page' ? it.page : it.key"
           class="pageBtn"
-          :class="{ active: n === page }"
-          @click="page = n"
+          :class="{ active: it.type === 'page' && it.page === page, ellipsis: it.type === 'ellipsis' }"
+          :disabled="it.type === 'ellipsis'"
+          @click="it.type === 'page' && (page = it.page)"
         >
-          {{ n }}
+          {{ it.type === 'page' ? it.page : '…' }}
         </button>
 
         <button class="navBtn" :disabled="page === totalPages" @click="page = Math.min(totalPages, page + 1)">
@@ -498,7 +499,8 @@ import { ref, computed, onMounted, watch } from "vue";
 import { listCaptures, deleteCapture, analyzeCapture, deleteTag } from "../api/imageApi";
 import { listVideos, deleteVideo, analyzeVideo } from "../api/videoApi";
 
-const gallery = ref([]); // will be loaded from backend
+const gallery = ref([
+]); // will be loaded from backend
 const query = ref("");
 
 /** Pagination */
@@ -509,15 +511,44 @@ const totalPages = computed(() => {
   const n = filtered.value.length;
   return Math.max(1, Math.ceil(n / pageSize));
 });
-
+/*
 const pageNumbers = computed(() =>
   Array.from({ length: totalPages.value }, (_, i) => i + 1)
-);
+); */
 
 // The items actually shown on the current page
 const paged = computed(() => {
   const start = (page.value - 1) * pageSize;
   return filtered.value.slice(start, start + pageSize);
+});
+
+const pageModel = computed(() => {
+  const t = totalPages.value;
+  const p = page.value;
+
+  // small counts: just show all
+  if (t <= 7) {
+    return Array.from({ length: t }, (_, i) => ({ type: "page", page: i + 1 }));
+  }
+
+  const items = [];
+  const addPage = (n) => items.push({ type: "page", page: n });
+  const addEllipsis = (key) => items.push({ type: "ellipsis", key });
+
+  addPage(1);
+
+  const start = Math.max(2, p - 2);
+  const end = Math.min(t - 1, p + 2);
+
+  if (start > 2) addEllipsis("l");
+
+  for (let n = start; n <= end; n++) addPage(n);
+
+  if (end < t - 1) addEllipsis("r");
+
+  addPage(t);
+
+  return items;
 });
 
 // Optional but recommended: when search changes, go back to page 1
@@ -1278,29 +1309,72 @@ async function closeAnalysisModal() {
   object-fit: cover;
 }
 
-.pager {
+.pager{
   margin-top: auto;
   display: flex;
   justify-content: center;
   align-items: center;
+  gap: 10px;
   padding: 18px 0 10px;
 }
 
-/* Page number style like Figma */
-.pageBtn {
-  width: 22px;
-  height: 22px;
-  border: 1px solid #bdbdbd;
-  background: #fff;
-  border-radius: 6px;
-  font-size: 12px;
-  cursor: pointer;
+.pageBtn.active{
+  background: #1f4b7a;   
+  border-color: #1f4b7a;
+  color: #ffffff;
+  font-weight: 800;
+  box-shadow: 0 0 0 2px rgba(31,75,122,0.25);
 }
 
-.pageBtn.active {
-  background: #1f4b7a;
-  color: #fff;
-  border-color: #1f4b7a;
+/* shared button baseline */
+.navBtn,
+.pageBtn{
+  height: 26px;
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 26px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: 1px solid #bdbdbd;
+  background: #fff;
+  color: #111;
+  padding: 0 10px;
+  cursor: pointer;
+  vertical-align: middle;
+  user-select: none;
+}
+
+/* numbers are square-ish pills */
+.pageBtn{
+  width: 26px;
+  padding: 0;
+}
+
+/* ellipsis */
+.pageBtn.ellipsis{
+  border: none;
+  background: transparent;
+  width: auto;
+  padding: 0 6px;
+  cursor: default;
+  color: rgba(255,255,255,0.75);
+}
+
+/* disabled */
+.navBtn:disabled,
+.pageBtn:disabled{
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+html.theme-dark .navBtn,
+html.theme-dark .pageBtn{
+  background: rgba(255,255,255,0.92);
+  border-color: rgba(255,255,255,0.65);
+  color: #111;
 }
 
 
