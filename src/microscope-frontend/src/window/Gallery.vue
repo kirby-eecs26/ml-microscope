@@ -29,7 +29,7 @@
       <!-- Cards grid -->
       <div v-else class="grid">
         <div
-          v-for="img in filtered"
+          v-for="img in paged"
           :key="img.id"
           class="card"
           :class="{ selected: selectedId === img.id }"
@@ -96,8 +96,24 @@
 
 
       <!-- Pagination -->
-      <footer class="pager">
-        <button class="pageBtn active">1</button>
+      <footer v-if="totalPages > 1" class="pager">
+        <button class="navBtn" :disabled="page === 1" @click="page = Math.max(1, page - 1)">
+          ← Previous
+        </button>
+
+        <button
+          v-for="n in pageNumbers"
+          :key="n"
+          class="pageBtn"
+          :class="{ active: n === page }"
+          @click="page = n"
+        >
+          {{ n }}
+        </button>
+
+        <button class="navBtn" :disabled="page === totalPages" @click="page = Math.min(totalPages, page + 1)">
+          Next →
+        </button>
       </footer>
     </div>
 
@@ -473,12 +489,37 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { listCaptures, deleteCapture, analyzeCapture, deleteTag } from "../api/imageApi";
 import { listVideos, deleteVideo, analyzeVideo } from "../api/videoApi";
 
 const gallery = ref([]); // will be loaded from backend
 const query = ref("");
+
+/** Pagination */
+const page = ref(1);
+const pageSize = 12; // 2 rows * 6 per row
+
+const totalPages = computed(() => {
+  const n = filtered.value.length;
+  return Math.max(1, Math.ceil(n / pageSize));
+});
+
+const pageNumbers = computed(() =>
+  Array.from({ length: totalPages.value }, (_, i) => i + 1)
+);
+
+// The items actually shown on the current page
+const paged = computed(() => {
+  const start = (page.value - 1) * pageSize;
+  return filtered.value.slice(start, start + pageSize);
+});
+
+// Optional but recommended: when search changes, go back to page 1
+watch(query, () => {
+  page.value = 1;
+});
+
 
 /** Fullscreen preview (lightbox) */
 const previewOpen = ref(false);
@@ -1193,8 +1234,9 @@ async function closeAnalysisModal() {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, 210px);
+  grid-template-columns: repeat(6, 210px);
   gap: 22px;
+  justify-content: start; 
 }
 
 .card {

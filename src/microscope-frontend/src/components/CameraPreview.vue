@@ -1,6 +1,14 @@
 <template>
   <div class="previewFrame">
-    <div v-if="error" class="status">
+    <div v-if="webStreamDisabled" class="status">
+      Web stream is disabled.
+      <div class="hint">
+        Turn it back on in <b>Settings → Display</b>.
+      </div>
+    </div>
+
+    <!-- Any error (microscope unreachable, etc.) -->
+    <div v-else-if="error" class="status">
       {{ error }}
       <div class="hint">
         Make sure you’re on the same network as the microscope and that

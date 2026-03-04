@@ -217,12 +217,12 @@
             <button class="primaryAction" @click="autoCalibrateMapping">AUTO-CALIBRATE USING CAMERA</button>
           </div>
           <div class="right-col">
-            <!-- Placeholder image -->
-            <img 
-              src="/cell.jpg" 
-              alt="Placeholder calibration image" 
-              style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;"
-            >
+            <div class="livePreviewBox">
+              <CameraPreview v-if="microscopeConnected" class="livePreview" />
+              <div v-else class="notConnected">
+                Microscope not connected
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -232,15 +232,69 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from "vue";
+import CameraPreview from "../components/CameraPreview.vue"
 import { getLiveInfo, microscopeHealth } from "../api/imageApi";
 
 const activeTab = ref('display')
 
 /* Display */
 const selectedTheme = ref('system')
+const THEME_KEY = "app_theme";
+let mediaListener = null;
+
+function applyTheme(mode) {
+  const root = document.documentElement; // <html>
+
+  // Remove any prior listener
+  if (mediaListener) {
+    window.matchMedia("(prefers-color-scheme: dark)").removeEventListener("change", mediaListener);
+    mediaListener = null;
+  }
+
+  const setDark = (on) => root.classList.toggle("theme-dark", !!on);
+
+  if (mode === "dark") {
+    setDark(true);
+    localStorage.setItem(THEME_KEY, "dark");
+    return;
+  }
+
+  // system
+  const mq = window.matchMedia("(prefers-color-scheme: dark)");
+  setDark(mq.matches);
+  localStorage.setItem(THEME_KEY, "system");
+
+  mediaListener = (e) => setDark(e.matches);
+  mq.addEventListener("change", mediaListener);
+}
+
+onMounted(() => {
+  // Load saved theme
+  const saved = localStorage.getItem(THEME_KEY);
+  if (saved === "dark" || saved === "system") {
+    selectedTheme.value = saved;
+  }
+  applyTheme(selectedTheme.value);
+});
+
+watch(selectedTheme, (val) => {
+  applyTheme(val);
+});
+
 const disableWebStream = ref(false)
+const STREAM_KEY = "disable_web_stream";
 const enableGpuPreview = ref(false)
 const trackWindow = ref(true)
+
+/* Disable Webstream */
+onMounted(() => {
+  const saved = localStorage.getItem(STREAM_KEY);
+  if (saved === "1") disableWebStream.value = true;
+});
+
+watch(disableWebStream, (val) => {
+  localStorage.setItem(STREAM_KEY, val ? "1" : "0");
+});
 
 /* Camera */
 const camExposure = ref(33243)
@@ -310,6 +364,25 @@ async function requestJson(method, path, body = null) {
   }
   return res.json().catch(() => ({}));
 }
+
+const microscopeConnected = ref(true)
+
+async function checkMicroscopeConnection() {
+  try {
+    // Pick a lightweight endpoint your backend definitely serves.
+    // If you already have a known "ping" route, replace this with that.
+    await requestJson("GET", "/status")
+    microscopeConnected.value = true
+  } catch (e) {
+    microscopeConnected.value = false
+  }
+}
+
+onMounted(() => {
+  checkMicroscopeConnection()
+  // Optional: keep it updated
+  setInterval(checkMicroscopeConnection, 3000)
+})
 
 function saveDisplaySettings() {
   console.log('APPLY DISPLAY', {
@@ -698,5 +771,33 @@ function saveMappingSettings() {
 
 .left-col {
   max-width: 400px;  
+}
+
+.livePreviewBox {
+  width: 100%;
+  max-width: 520px;        /* adjust if you want bigger */
+  aspect-ratio: 4 / 3;     /* keeps it “camera-like” */
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+
+.livePreview {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.notConnected {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--text-dark);
+  opacity: 0.85;
+  font-weight: 600;
 }
 </style>
