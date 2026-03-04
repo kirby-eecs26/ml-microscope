@@ -31,7 +31,8 @@
             <h2 class="sectionTitle">Links</h2>     
             <div class="infoGrid">
                 <p>
-                  <a class="report-link" href="https://docs.google.com/forms/d/e/1FAIpQLSegUnN5GF0ICj0CRlQ6HM50yFV_nvg_X8xL2ib5RbB1xKAfnA/viewform">Report an issue</a>
+                  <a class="report-link" href="https://docs.google.com/forms/d/e/1FAIpQLSegUnN5GF0ICj0CRlQ6HM50yFV_nvg_X8xL2ib5RbB1xKAfnA/viewform"
+                  target="_blank" rel="noopener noreferrer">Report an issue</a>
                 </p>
             </div>
         </div>
