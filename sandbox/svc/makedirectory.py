@@ -91,7 +91,7 @@ new_filetocsv = downloads_path / f"filetocsv.csv"
 #
 
 new_dictfile = downloads_path / f"test_dictfile.csv"
-test_dict = [{"hello": "world", "goodbye":"world"}, {"hello": "earth", "goodbye":"earth"}]
+test_dict = [{"dictnum":"one", "hello": "world", "goodbye":"world"}, {"dictnum":"two", "hello": "earth", "goodbye":"earth"}]
 headers = []
 
 for key, value in test_dict[0].items():
