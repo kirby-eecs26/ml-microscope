@@ -17,7 +17,6 @@
         <div class="sectionTitle" id="MicroscopeSettingsTitle">Microscope Settings</div>
         <div class="settingsNav">
           <div class="navItem" :class="{ active: activeTab === 'camera' }" @click="activeTab = 'camera'">Camera</div>
-          <div class="navItem" :class="{ active: activeTab === 'mapping' }" @click="activeTab = 'mapping'">Camera / Stage Mapping</div>
         </div>
       </div>
     </aside>
@@ -204,28 +203,6 @@
         </div>
       </div>
 
-      <!-- CAMERA/STAGE MAPPING -->
-      <div class="mappingSettings" v-if="activeTab === 'mapping'">
-        <h2 class="contentTitle">Camera/Stage Mapping Settings</h2>
-
-        <div class="mapping-layout">
-          <div class="left-col">
-            <p class="settingDescription">
-              Camera/stage mapping allows the stage to move relative to the camera view.
-              This enables functions like click-to-move, and more precise tile scans.
-            </p>
-            <button class="primaryAction" @click="autoCalibrateMapping">AUTO-CALIBRATE USING CAMERA</button>
-          </div>
-          <div class="right-col">
-            <div class="livePreviewBox">
-              <CameraPreview v-if="microscopeConnected" class="livePreview" />
-              <div v-else class="notConnected">
-                Microscope not connected
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
     </main>
   </div>
 </template>
@@ -341,9 +318,10 @@ function onPreviewLoad() {
 const stageStepSize = ref(10)
 const stageMaxSpeed = ref(100)
 
-/* Mapping */
+/* Mapping  
 const pixelsPerUm = ref(0.25)
 const rotationDeg = ref(0)
+*/
 
 /* General */
 const captureDirectory = ref('/capture/images')
@@ -431,15 +409,6 @@ async function runCalibration(kind) {
     console.log('CALIBRATION OK', kind, out)
   } catch (e) {
     console.error('CALIBRATION ERROR', kind, e)
-  }
-}
-
-async function autoCalibrateMapping() {
-  try {
-    const out = await postJson('/settings/mapping/autocalibrate_using_camera')
-    console.log('MAPPING AUTOCALIBRATE OK', out)
-  } catch (e) {
-    console.error('MAPPING AUTOCALIBRATE ERROR', e)
   }
 }
 

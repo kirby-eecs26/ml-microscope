@@ -291,12 +291,12 @@ html.theme-dark .moveControls input{
 
 
 /* icon buttons */
-
+/*
 html.theme-dark .iconBtn,
 html.theme-dark .smallBtn{
   background: var(--surface-2) !important;
   border: 1px solid var(--border) !important;
-}
+} */
 
 /* about page */
 
@@ -308,7 +308,6 @@ html.theme-dark .aboutPage .version {
   color: #ffffff !important;
 }
 
-/* Strong labels (Device Name, Server Version, etc.) */
 html.theme-dark .aboutPage .infoGrid strong,
 html.theme-dark .aboutPage .version strong {
   color: #ffffff !important;
@@ -317,7 +316,7 @@ html.theme-dark .aboutPage .version strong {
 /* Titles in About */
 html.theme-dark .aboutPage .mainTitle,
 html.theme-dark .aboutPage .sectionTitle {
-  color: #8ab4f8 !important; /* readable blue like your settings header */
+  color: #8ab4f8 !important; 
 }
 
 /* Section divider line so it’s visible in dark */
@@ -325,8 +324,97 @@ html.theme-dark .aboutPage .section {
   border-bottom: 1px solid var(--border) !important;
 }
 
-/* Link colors in dark mode */
+
 html.theme-dark .aboutPage a,
 html.theme-dark .aboutPage a:visited {
   color: #8ab4f8 !important;
+}
+
+html.theme-dark .galleryPage .actions .iconBtn,
+html.theme-dark .galleryPage .iconBtn {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+
+html.theme-dark .galleryPage .actions .iconBtn .material-symbols-outlined,
+html.theme-dark .galleryPage .iconBtn .material-symbols-outlined {
+  color: #fff !important;
+}
+
+html.theme-dark .galleryPage .actions .iconBtn:hover {
+  background: rgba(255,255,255,0.12) !important;
+  border-radius: 6px;
+}
+
+html.theme-dark .galleryPage .actions .iconBtn:active {
+  background: rgba(255,255,255,0.18) !important;
+}
+
+html.theme-dark .movePage .controls{
+  background: #2b2b2b !important;
+  color: #ffffff !important;
+  border-right: 1px solid rgba(255,255,255,0.12) !important;
+}
+
+html.theme-dark .movePage .groupTitle{
+  color: #ffffff !important;
+  opacity: 0.9 !important;  
+}
+
+html.theme-dark .movePage .axis-label{
+  color: #ffffff !important;
+}
+
+html.theme-dark .movePage .status{
+  color: rgba(255,255,255,0.9) !important;
+}
+
+html.theme-dark .movePage .axisInput{
+  background: #3a3a3a !important;
+  border-color: rgba(255,255,255,0.18) !important;
+  color: #ffffff !important;
+}
+
+html.theme-dark .galleryPage .title{
+  color: #ffffff !important;
+  opacity: 0.9 !important;
+}
+
+html.theme-dark .capturePage .header {
+  color: #fff !important;
+  opacity: 0.9 !important;
+}
+
+html.theme-dark .galleryPage .topbar .title {
+  color: #fff !important;
+  opacity: 1.0 !important;
+}
+
+/* Capture modals: make the left-side labels darker (Filename / Notes / Annotations / Tags) */
+html.theme-dark .capturePage .imageModal .modalLabel,
+html.theme-dark .capturePage .videoModal .modalLabel,
+html.theme-dark .capturePage .imageModalTitle,
+html.theme-dark .capturePage .videoModalTitle {
+  color: #111 !important;   /* darker text */
+  opacity: 1 !important;
+}
+
+/* Capture modals: lighten the dark grey input/textarea boxes */
+html.theme-dark .capturePage .imageModal .textInput,
+html.theme-dark .capturePage .videoModal .textInput,
+html.theme-dark .capturePage .imageModal .textArea,
+html.theme-dark .capturePage .videoModal .textArea,
+html.theme-dark .capturePage .miniInput {
+  background: #e9e9e9 !important;  
+  color: #111 !important;
+  border-color: #bdbdbd !important;
+}
+
+html.theme-dark .galleryPage .topbar,
+body.theme-dark .galleryPage .topbar,
+.theme-dark .galleryPage .topbar{
+  background: #a9a9a9 !important;
+  border-bottom-color: #a9a9a9 !important;
 }
