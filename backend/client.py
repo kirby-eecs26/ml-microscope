@@ -25,6 +25,7 @@ import re
 import unicodedata
 from zipfile import ZipFile, ZIP_DEFLATED
 from fastapi.responses import FileResponse
+from fastapi import Response
 
 from backend.count import count_from_rgb
 
@@ -788,6 +789,38 @@ def apply_camera_settings(req: CameraSettingsRequest):
         return {"ok": True, "result": r.json(), "sent": payload}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Apply camera settings failed: {e}")
+
+@app.get("/export/annotations/{item_type}/{item_id}")
+def export_one_annotations(item_type: str, item_id: str):
+    if item_type not in ("capture", "video"):
+        raise HTTPException(status_code=400, detail="item_type must be capture or video")
+
+    if item_type == "capture":
+        meta = requests.get(f"{server.API_BASE}api/v2/captures/{item_id}", timeout=10)
+        meta.raise_for_status()
+        j = meta.json()
+        ann = j.get("annotations") or {}
+        name = j.get("name") or f"capture_{item_id}"
+
+    else:
+        meta_path = SAVED_VIDEOS_DIR / f"{item_id}.json"
+        if not meta_path.exists():
+            raise HTTPException(status_code=404, detail="Video metadata not found")
+        j = json.loads(meta_path.read_text(encoding="utf-8"))
+        ann = j.get("annotations") or {}
+        name = j.get("name") or f"video_{item_id}"
+    output = io.StringIO()
+    fieldnames = list(ann.keys())
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
+    writer.writeheader()
+    writer.writerow(ann)
+    csv_bytes = output.getvalue().encode("utf-8")
+    filename = f"{name}_annotations.csv"
+    return Response(
+        content=csv_bytes,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
 
 @app.post("/settings/calibration/full_autocalibrate")
 def calibration_full_autocalibrate():

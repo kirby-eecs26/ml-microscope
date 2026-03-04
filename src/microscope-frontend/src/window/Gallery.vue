@@ -53,7 +53,12 @@
             <div class="datetime">{{ formatDate(img.datetime) }}</div>
 
             <div class="actions">
-              <button class="iconBtn" @click.stop="openAnalysisModal(img)">
+              <button
+                class="iconBtn"
+                type="button"
+                title="Export annotations CSV"
+                @click.stop="downloadAnnotationsCsv(img)"
+              >
                 <span class="material-symbols-outlined">bar_chart</span>
               </button>
 
@@ -523,6 +528,8 @@ const zipReady = ref(false);
 const zipId = ref(null);
 const zipError = ref(""); 
 
+const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
+
 const filtered = computed(() => {
   const q = query.value?.trim().toLowerCase();
   if (!q) return gallery.value;
@@ -762,6 +769,12 @@ async function downloadOne(img) {
   } catch (e) {
     console.error(e);
   }
+}
+
+function downloadAnnotationsCsv(item) {
+  const itemType = item.type === "video" ? "video" : "capture";
+  const url = `${API_BASE}/export/annotations/${itemType}/${item.id}`;
+  window.open(url, "_blank"); // triggers browser download
 }
 
 
