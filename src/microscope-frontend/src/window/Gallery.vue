@@ -569,7 +569,10 @@ const zipReady = ref(false);
 const zipId = ref(null);
 const zipError = ref(""); 
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
+const API_BASE =
+  import.meta.env.VITE_API_BASE ||
+  window.location.origin || // if UI is served by uvicorn
+  "http://127.0.0.1:8000";  // fallback for packaged app
 
 const filtered = computed(() => {
   const q = query.value?.trim().toLowerCase();
@@ -591,15 +594,15 @@ function isVideo(item) {
  */
 function normalizeCaptures(payload) {
   const items = payload?.captures ?? payload ?? [];
-  const base = import.meta.env.VITE_API_BASE || "";
   return items.map((c) => {
     const id = c.id;
     return {
       id,
+      type: "image",
       name: c.name ?? "capture",
       datetime: c.time ?? "",
-      url: `${base}/captures/${encodeURIComponent(id)}/image`,
-      thumbUrl: `${base}/captures/${encodeURIComponent(id)}/image`,
+      url: `${API_BASE}/captures/${encodeURIComponent(id)}/image`,
+      thumbUrl: `${API_BASE}/captures/${encodeURIComponent(id)}/image`,
       tags: c.tags ?? [],
       raw: c,
     };
@@ -608,13 +611,12 @@ function normalizeCaptures(payload) {
 
 function normalizeVideos(payload) {
   const items = payload?.videos ?? payload ?? [];
-  const base = import.meta.env.VITE_API_BASE || "";
   return items.map((v) => ({
     id: v.id,
     type: "video",
     name: v.name ?? "video",
     datetime: v.time ?? "",
-    url: `${base}/video/${encodeURIComponent(v.id)}/download`,
+    url: `${API_BASE}/video/${encodeURIComponent(v.id)}/download`,
     thumbUrl: null,
     tags: v.tags ?? [],
     raw: v,
@@ -814,8 +816,8 @@ async function downloadOne(img) {
 
 function downloadAnnotationsCsv(item) {
   const itemType = item.type === "video" ? "video" : "capture";
-  const url = `${API_BASE}/export/annotations/${itemType}/${item.id}`;
-  window.open(url, "_blank"); // triggers browser download
+  const url = `${API_BASE}/export/annotations/${itemType}/${encodeURIComponent(item.id)}`;
+  window.open(url, "_blank");
 }
 
 
