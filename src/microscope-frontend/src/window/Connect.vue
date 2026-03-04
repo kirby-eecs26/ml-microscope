@@ -15,54 +15,56 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 
-const router = useRouter();
+const router = useRouter()
 
-const connectionType = ref('local');
-const host = ref('microscope.local');
-const port = ref('5000');
+const connectionType = ref('local')
+const host = ref('microscope.local')
+const port = ref('5000')
+
+const isConnecting = ref(false)
+const errorMessage = ref('')
 
 async function checkCamera() {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 5000)
+
   try {
-    const response = await fetch('/live/stream', { signal: controller.signal });
-    const reader = response.body.getReader();
-    const { value } = await reader.read();
-    reader.cancel();
-    clearTimeout(timeoutId);
-    return value && value[0] === 0xFF && value[1] === 0xD8;
+    const response = await fetch('/live/stream', { signal: controller.signal })
+
+    const reader = response.body.getReader()
+    const { value } = await reader.read()
+    reader.cancel()
+
+    clearTimeout(timeoutId)
+
+    return value && value[0] === 0xFF && value[1] === 0xD8
   } catch {
-    return false;
+    return false
   } finally {
-    clearTimeout(timeoutId);
+    clearTimeout(timeoutId)
   }
 }
 
 async function connectAndNavigate() {
-  isConnecting.value = true;
-  errorMessage.value = '';
+  isConnecting.value = true
+  errorMessage.value = ''
 
   try {
-    const healthResults = await fetch('/microscope/health');
-    if(!healthResults.ok) {
-      errorMessage.value = "Microscope is not reachable";
-      return;
+    const res = await fetch('/microscope/health')
+
+    if (!res.ok) {
+      throw new Error()
     }
 
-    const cameraResults = await checkCamera();
-    if(!cameraResults) {
-      errorMessage.value = "Camera stream is not available";
-      return;
-    }
+    router.push('/view')
 
-    router.push('/view');
-  } catch (err) {
-    errorMessage.value = "Network error: could not reach microscope.";
+  } catch {
+    errorMessage.value = "Microscope not detected. Please ensure proper connection."
   } finally {
-    isConnecting.value = false;
+    isConnecting.value = false
   }
 }
 </script>

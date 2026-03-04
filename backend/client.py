@@ -746,6 +746,7 @@ def apply_camera_settings(req: CameraSettingsRequest):
         full = s.json()
         cam = full.get("camera") or {}
         pic = cam.get("picamera") or {}
+
         res_map = {
             "higher": [832, 624],
             "normal": [640, 480],
@@ -776,14 +777,15 @@ def apply_camera_settings(req: CameraSettingsRequest):
         if req.cameraFramerate is not None:
             pic["framerate"] = float(req.cameraFramerate)
         if req.wbR is not None or req.wbB is not None:
-            r = float(req.wbR if req.wbR is not None else (pic.get("awb_gains") or [1.0, 1.0])[0])
-            b = float(req.wbB if req.wbB is not None else (pic.get("awb_gains") or [1.0, 1.0])[1])
-            pic["awb_gains"] = [r, b]
+            old = pic.get("awb_gains") or [1.0, 1.0]
+            r_gain = float(req.wbR if req.wbR is not None else old[0])
+            b_gain = float(req.wbB if req.wbB is not None else old[1])
+            pic["awb_gains"] = [r_gain, b_gain]
         cam["picamera"] = pic
-        full["camera"] = cam
-        r = requests.put(f"{server.API_BASE}api/v2/instrument/settings", json=full, timeout=15)
+        payload = {"camera": cam}
+        r = requests.put(f"{server.API_BASE}api/v2/instrument/settings", json=payload, timeout=15)
         r.raise_for_status()
-        return {"ok": True, "result": r.json()}
+        return {"ok": True, "result": r.json(), "sent": payload}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Apply camera settings failed: {e}")
 

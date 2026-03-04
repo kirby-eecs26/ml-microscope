@@ -57,98 +57,150 @@
       <div class="cameraSettings" v-if="activeTab === 'camera'">
         <h2 class="contentTitle">Manual Camera Settings</h2>
 
-        <div class="settingGroup">
-          <h3 class="settingTitle">Pi Camera Settings</h3>
+        <div class="camera-layout">
 
-          <div class="grid2">
-            <div class="formRow">
-              <label>Exposure time</label>
-              <input class="textInput" type="number" v-model.number="camExposure" />
+          <!-- LEFT COLUMN (ALL YOUR SETTINGS) -->
+          <div class="camera-left">
+
+            <div class="settingGroup">
+              <h3 class="settingTitle">Pi Camera Settings</h3>
+
+              <div class="grid2">
+                <div class="formRow">
+                  <label>Exposure time</label>
+                  <input class="textInput" type="number" v-model.number="camExposure" />
+                </div>
+
+                <div class="formRow">
+                  <label>Analogue gain</label>
+                  <input class="textInput" type="number" step="0.01" v-model.number="camAnalogueGain" />
+                </div>
+
+                <div class="formRow">
+                  <label>Digital gain</label>
+                  <input class="textInput" type="number" step="0.01" v-model.number="camDigitalGain" />
+                </div>
+              </div>
+
+              <div class="subTitle">White Balance gains</div>
+
+              <div class="grid2">
+                <div class="formRow">
+                  <label>R</label>
+                  <input class="textInput" type="number" step="0.01" v-model.number="wbR" />
+                </div>
+
+                <div class="formRow">
+                  <label>B</label>
+                  <input class="textInput" type="number" step="0.01" v-model.number="wbB" />
+                </div>
+              </div>
             </div>
 
-            <div class="formRow">
-              <label>Analogue gain</label>
-              <input class="textInput" type="number" step="0.01" v-model.number="camAnalogueGain" />
+            <div class="settingGroup">
+              <h3 class="settingTitle">Image Quality</h3>
+
+              <div class="grid2">
+                <div class="formRow">
+                  <label>JPEG capture quality (%)</label>
+                  <input class="textInput" type="number" min="1" max="100" v-model.number="jpegQuality" />
+                </div>
+
+                <div class="formRow">
+                  <label>Stream resolution</label>
+                  <select class="themeDropdown wide" v-model="streamResolution">
+                    <option value="higher">Higher (832, 624)</option>
+                    <option value="normal">Normal (640, 480)</option>
+                  </select>
+                </div>
+              </div>
             </div>
 
-            <div class="formRow">
-              <label>Digital gain</label>
-              <input class="textInput" type="number" step="0.01" v-model.number="camDigitalGain" />
+            <div class="settingGroup">
+              <h3 class="settingTitle">Advanced</h3>
+
+              <div class="grid2">
+                <div class="formRow">
+                  <label>Camera bitrate</label>
+                  <select class="themeDropdown wide" v-model="cameraBitrate">
+                    <option value="max">Maximum (unlimited)</option>
+                    <option value="high">High (25 Mbps)</option>
+                    <option value="normal">Normal (17 Mbps)</option>
+                    <option value="low">Low (5 Mbps)</option>
+                    <option value="verylow">Very low (2.5 Mbps)</option>
+                  </select>
+                </div>
+
+                <div class="formRow">
+                  <label>Camera framerate</label>
+                  <select class="themeDropdown wide" v-model="cameraFramerate">
+                    <option :value="30">Normal (30fps)</option>
+                    <option :value="15">Low (15fps)</option>
+                    <option :value="10">Very low (10fps)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="formRow">
+                <button class="primaryAction" @click="applyCameraSettings">
+                  APPLY SETTINGS
+                </button>
+              </div>
             </div>
+
+            <div class="settingGroup">
+              <h3 class="settingTitle">Automatic calibration</h3>
+
+              <div class="btnStack">
+                <button class="secondaryAction" @click="runCalibration('FULL_AUTO_CALIBRATE')">
+                  FULL AUTO-CALIBRATE
+                </button>
+
+                <button class="secondaryAction" @click="runCalibration('AUTO_GAIN_SHUTTER')">
+                  AUTO GAIN & SHUTTER SPEED
+                </button>
+
+                <button class="secondaryAction" @click="runCalibration('AUTO_WHITE_BALANCE')">
+                  AUTO WHITE BALANCE
+                </button>
+
+                <button class="secondaryAction" @click="runCalibration('AUTO_FLAT_FIELD')">
+                  AUTO FLAT FIELD CORRECTION
+                </button>
+
+                <button class="secondaryAction danger" @click="runCalibration('DISABLE_FLAT_FIELD')">
+                  DISABLE FLAT FIELD CORRECTION
+                </button>
+              </div>
+            </div>
+
           </div>
 
-          <div class="subTitle">White Balance gains</div>
-          <div class="grid2">
-            <div class="formRow">
-              <label>R</label>
-              <input class="textInput" type="number" step="0.01" v-model.number="wbR" />
-            </div>
-            <div class="formRow">
-              <label>B</label>
-              <input class="textInput" type="number" step="0.01" v-model.number="wbB" />
-            </div>
-          </div>
-        </div>
+          <!-- RIGHT COLUMN (LIVE CAMERA STREAM) -->
+          <div class="camera-right">
 
-        <div class="settingGroup">
-          <h3 class="settingTitle">Image Quality</h3>
+            <h3 class="previewTitle">Live Preview</h3>
 
-          <div class="grid2">
-            <div class="formRow">
-              <label>JPEG capture quality (%)</label>
-              <input class="textInput" type="number" min="1" max="100" v-model.number="jpegQuality" />
+            <div class="previewBox">
+              <img
+                class="mjpegPreview"
+                :src="mjpegUrl"
+                alt="Live camera preview"
+                @error="onPreviewError"
+                @load="onPreviewLoad"
+              />
+
+              <div v-if="previewError" class="previewError">
+                Preview unavailable. Check microscope connection.
+              </div>
             </div>
 
-            <div class="formRow">
-              <label>Stream resolution</label>
-              <select class="themeDropdown wide" v-model="streamResolution">
-                <option value="higher">Higher (832, 624)</option>
-                <option value="normal">Normal (640, 480)</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div class="settingGroup">
-          <h3 class="settingTitle">Advanced</h3>
-
-          <div class="grid2">
-            <div class="formRow">
-              <label>Camera bitrate</label>
-              <select class="themeDropdown wide" v-model="cameraBitrate">
-                <option value="max">Maximum (unlimited)</option>
-                <option value="high">High (25 Mbps)</option>
-                <option value="normal">Normal (17 Mbps)</option>
-                <option value="low">Low (5 Mbps)</option>
-                <option value="verylow">Very low (2.5 Mbps)</option>
-              </select>
+            <div class="previewHint">
+              Live MJPEG stream from the microscope camera.
             </div>
 
-            <div class="formRow">
-              <label>Camera framerate</label>
-              <select class="themeDropdown wide" v-model="cameraFramerate">
-                <option :value="30">Normal (30fps)</option>
-                <option :value="15">Low (15fps)</option>
-                <option :value="10">Very low (10fps)</option>
-              </select>
-            </div>
           </div>
 
-          <div class="formRow">
-            <button class="primaryAction" @click="applyCameraSettings">APPLY SETTINGS</button>
-          </div>
-        </div>
-
-        <div class="settingGroup">
-          <h3 class="settingTitle">Automatic calibration</h3>
-
-          <div class="btnStack">
-            <button class="secondaryAction" @click="runCalibration('FULL_AUTO_CALIBRATE')">FULL AUTO-CALIBRATE</button>
-            <button class="secondaryAction" @click="runCalibration('AUTO_GAIN_SHUTTER')">AUTO GAIN &amp; SHUTTER SPEED</button>
-            <button class="secondaryAction" @click="runCalibration('AUTO_WHITE_BALANCE')">AUTO WHITE BALANCE</button>
-            <button class="secondaryAction" @click="runCalibration('AUTO_FLAT_FIELD')">AUTO FLAT FIELD CORRECTION</button>
-            <button class="secondaryAction danger" @click="runCalibration('DISABLE_FLAT_FIELD')">DISABLE FLAT FIELD CORRECTION</button>
-          </div>
         </div>
       </div>
 
@@ -179,7 +231,8 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted, watch } from "vue";
+import { getLiveInfo, microscopeHealth } from "../api/imageApi";
 
 const activeTab = ref('display')
 
@@ -199,6 +252,36 @@ const jpegQuality = ref(100)
 const streamResolution = ref('higher')
 const cameraBitrate = ref('max')
 const cameraFramerate = ref(30)
+const mjpegUrl = ref("");
+const previewError = ref(false)
+const previewNonce = ref(Date.now())
+function onImgError() {
+  previewError.value = true;
+  mjpegUrl.value = "";
+}
+async function loadPreviewUrl() {
+  previewError.value = false;
+  const ok = await microscopeHealth().catch(() => false);
+  if (!ok) {
+    previewError.value = true;
+    mjpegUrl.value = "";
+    return;
+  }
+  const info = await getLiveInfo();
+  mjpegUrl.value = info.mjpeg_url;
+}
+onMounted(() => {
+  if (activeTab.value === "camera") loadPreviewUrl();
+});
+watch(activeTab, (t) => {
+  if (t === "camera" && !mjpegUrl.value) loadPreviewUrl();
+});
+function onPreviewError() {
+  previewError.value = true
+}
+function onPreviewLoad() {
+  previewError.value = false
+}
 
 /* Stage */
 const stageStepSize = ref(10)
@@ -239,32 +322,17 @@ function saveDisplaySettings() {
 
 async function applyCameraSettings() {
   try {
-    const resMap = {
-      higher: [832, 624],
-      normal: [640, 480],
-    };
-    const bitrateMap = {
-      max: -1,
-      high: 25_000_000,
-      normal: 17_000_000,
-      low: 5_000_000,
-      verylow: 2_500_000,
-    };
     const payload = {
-      camera: {
-        mjpeg_bitrate: bitrateMap[cameraBitrate.value] ?? -1,
-        jpeg_quality: Number(jpegQuality.value ?? 95),
-        stream_resolution: resMap[streamResolution.value] ?? [832, 624],
-      },
-      picamera: {
-        shutter_speed: Number(camExposure.value ?? 0),
-        analogue_gain: Number(camAnalogueGain.value ?? 1.0),
-        digital_gain: Number(camDigitalGain.value ?? 1.0),
-        framerate: Number(cameraFramerate.value ?? 30),
-        awb_gains: [Number(wbR.value ?? 1.0), Number(wbB.value ?? 1.0)],
-      },
+      exposure: Number(camExposure.value ?? 0),
+      analogueGain: Number(camAnalogueGain.value ?? 1.0),
+      digitalGain: Number(camDigitalGain.value ?? 1.0),
+      wbR: Number(wbR.value ?? 1.0),
+      wbB: Number(wbB.value ?? 1.0),
+      jpegQuality: Number(jpegQuality.value ?? 100),
+      streamResolution: streamResolution.value,
+      cameraBitrate: cameraBitrate.value,
+      cameraFramerate: Number(cameraFramerate.value ?? 30),
     };
-
     const out = await requestJson("POST", "/settings/camera/apply", payload);
     console.log("APPLY SETTINGS OK", out);
   } catch (e) {
@@ -381,6 +449,71 @@ function saveMappingSettings() {
   background: #d0d0d0;
   margin: 10px;
   margin-top: 5px;
+}
+
+.camera-layout {
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  gap: 24px;
+  align-items: start;
+}
+
+.camera-left {
+  min-width: 0;
+}
+
+.camera-right {
+  position: sticky;
+  top: 16px;
+}
+
+.previewTitle {
+  margin: 0 0 10px 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #333;
+}
+
+.previewBox {
+  position: relative;
+  width: 100%;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #000;
+  overflow: hidden;
+}
+
+.mjpegPreview {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.previewError {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: white;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 12px;
+  text-align: center;
+}
+
+.previewHint {
+  margin-top: 10px;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+@media (max-width: 1100px) {
+  .camera-layout {
+    grid-template-columns: 1fr;
+  }
+  .camera-right {
+    position: static;
+  }
 }
 
 /* Settings Content */
