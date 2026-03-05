@@ -59,7 +59,8 @@
                 title="Export annotations CSV"
                 @click.stop="downloadAnnotationsCsv(img)"
               >
-                <span class="material-symbols-outlined">bar_chart</span>
+                <!--<span class="material-symbols-outlined">bar_chart</span>-->
+                <span class="material-symbols-outlined">csv</span>
               </button>
 
               <button class="iconBtn" @click.stop="downloadOne(img)">

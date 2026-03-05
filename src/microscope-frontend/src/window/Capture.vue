@@ -566,6 +566,14 @@ async function stopRecording(isAuto = false) {
 }
 
 function openStopModal() {
+  videoModalFilename.value = "";
+  videoModalNotes.value = "";
+  videoModalAnnotations.value = [];
+  videoModalTags.value = [];
+  videoAnnoKey.value = "";
+  videoAnnoValue.value = "";
+  videoTagInput.value = "";
+
   stopModalOpen.value = true;
   cellCount.value = null;
   videoSaved.value = false;
