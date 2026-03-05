@@ -19,7 +19,12 @@
   --muted:#666;
 }
 
-
+html.theme-light {
+  color-scheme: light;
+}
+html.theme-dark {
+  color-scheme: dark;
+}
 /* DARK MODE */
 
 html.theme-dark{
@@ -291,14 +296,7 @@ html.theme-dark .moveControls input{
 
 
 /* icon buttons */
-/*
-html.theme-dark .iconBtn,
-html.theme-dark .smallBtn{
-  background: var(--surface-2) !important;
-  border: 1px solid var(--border) !important;
-} */
 
-/* about page */
 
 html.theme-dark .aboutPage,
 html.theme-dark .aboutPage .content,
@@ -401,7 +399,7 @@ html.theme-dark .capturePage .videoModalTitle {
   opacity: 1 !important;
 }
 
-/* Capture modals: lighten the dark grey input/textarea boxes */
+/* Capture modals: lighten the dark grey input/textarea boxes 
 html.theme-dark .capturePage .imageModal .textInput,
 html.theme-dark .capturePage .videoModal .textInput,
 html.theme-dark .capturePage .imageModal .textArea,
@@ -410,13 +408,20 @@ html.theme-dark .capturePage .miniInput {
   background: #e9e9e9 !important;  
   color: #111 !important;
   border-color: #bdbdbd !important;
-}
+} */
 
 /* Capture modal placeholder text darker */
-.capturePage input::placeholder,
-.capturePage textarea::placeholder {
-  color: #555 !important;   /* dark grey */
-  opacity: 1 !important;    /* remove transparent effect */
+
+html.theme-dark .capturePage input,
+html.theme-dark .capturePage textarea {
+  background: #3a3a3a !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255,255,255,0.18) !important;
+}
+
+html.theme-dark .capturePage input::placeholder,
+html.theme-dark .capturePage textarea::placeholder {
+  color: rgba(255,255,255,0.55) !important;
 }
 
 /* also cover mini inputs (key/value/tag fields) */
@@ -432,7 +437,6 @@ body.theme-dark .galleryPage .topbar,
   border-bottom-color: #2b2b2b  !important;
 }
 
-/* 1) Generic “muted/section” headings that often use opacity */
 html.theme-dark .settingsPage .groupTitle,
 html.theme-dark .settingsPage .header,
 html.theme-dark .settingsPage .title,
@@ -450,7 +454,6 @@ html.theme-dark .settingsPage legend {
   opacity: 1 !important;
 }
 
-/* 2) If your Settings page wrapper class is NOT "settingsPage", this catches it anyway */
 html.theme-dark [class*="settings"] .groupTitle,
 html.theme-dark [class*="settings"] .header,
 html.theme-dark [class*="settings"] .label,
@@ -459,7 +462,6 @@ html.theme-dark [class*="settings"] legend {
   opacity: 1 !important;
 }
 
-/* 3) Common framework label classes (one of these is often the culprit) */
 html.theme-dark .v-label,
 html.theme-dark .v-field-label,
 html.theme-dark .v-input__label,
@@ -471,3 +473,137 @@ html.theme-dark .form-text {
   opacity: 1 !important;
 }
 
+html.theme-dark .capturePage .backdrop{
+  background: rgba(0,0,0,0.72) !important;
+}
+
+/* modal shells */
+html.theme-dark .capturePage .imageModal,
+html.theme-dark .capturePage .videoModal{
+  background: #2f2f2f !important;
+  border-color: rgba(255,255,255,0.14) !important;
+  color: #fff !important;
+}
+
+/* header text */
+html.theme-dark .capturePage .imageModalTitle,
+html.theme-dark .capturePage .videoModalTitle{
+  color: #fff !important;
+}
+
+/* left + right panels */
+html.theme-dark .capturePage .modalLeft{
+  background: #252525 !important;
+  border-color: rgba(255,255,255,0.12) !important;
+}
+
+html.theme-dark .capturePage .modalRight{
+  background: #242424 !important;
+  border-color: rgba(255,255,255,0.12) !important;
+}
+
+/* field labels (Filename / Notes / Annotations / Tags) */
+html.theme-dark .capturePage .modalLabel{
+  color: rgba(255,255,255,0.92) !important;
+}
+
+/* inputs inside capture modals */
+html.theme-dark .capturePage .textInput,
+html.theme-dark .capturePage .textArea,
+html.theme-dark .capturePage .miniInput{
+  background: #3a3a3a !important;
+  color: #fff !important;
+  border-color: rgba(255,255,255,0.18) !important;
+}
+
+/* placeholders */
+html.theme-dark .capturePage .textInput::placeholder,
+html.theme-dark .capturePage .textArea::placeholder,
+html.theme-dark .capturePage .miniInput::placeholder{
+  color: rgba(255,255,255,0.55) !important;
+}
+
+/*  Gallery Modals dark mode */
+
+html.theme-dark .galleryPage .backdrop,
+html.theme-dark .galleryPage .analysisBackdrop,
+html.theme-dark .galleryPage .imgBackdrop{
+  background: rgba(0,0,0,0.65) !important;
+}
+
+/* Main “Details” modal + mini confirmation modals */
+html.theme-dark .galleryPage .modal,
+html.theme-dark .galleryPage .miniModal{
+  background: #2b2b2b !important;
+  color: #ffffff !important;
+  border-color: rgba(255,255,255,0.12) !important;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.55) !important;
+}
+
+/* Titles + labels inside modals */
+html.theme-dark .galleryPage .modalTitle,
+html.theme-dark .galleryPage .miniTitle,
+html.theme-dark .galleryPage .section .label,
+html.theme-dark .galleryPage .rowLine,
+html.theme-dark .galleryPage .annoKey,
+html.theme-dark .galleryPage .metaKey{
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+/* Subtext / muted */
+html.theme-dark .galleryPage .muted,
+html.theme-dark .galleryPage .detailText,
+html.theme-dark .galleryPage .annoVal,
+html.theme-dark .galleryPage .metaVal{
+  color: rgba(255,255,255,0.85) !important;
+}
+
+/* Dividers + borders inside modal */
+html.theme-dark .galleryPage .divider,
+html.theme-dark .galleryPage .rowLine,
+html.theme-dark .galleryPage .annoRowRead{
+  border-color: rgba(255,255,255,0.12) !important;
+}
+html.theme-dark .galleryPage .divider{
+  background: rgba(255,255,255,0.12) !important;
+}
+
+/* Inputs / textareas in modals */
+html.theme-dark .galleryPage .modal input,
+html.theme-dark .galleryPage .modal textarea,
+html.theme-dark .galleryPage .miniModal input{
+  background: #3a3a3a !important;
+  color: #ffffff !important;
+  border-color: rgba(255,255,255,0.18) !important;
+}
+
+/* Placeholders */
+html.theme-dark .galleryPage .modal input::placeholder,
+html.theme-dark .galleryPage .modal textarea::placeholder,
+html.theme-dark .galleryPage .miniModal input::placeholder{
+  color: rgba(255,255,255,0.55) !important;
+  opacity: 1 !important;
+}
+
+/* Chips inside modal */
+html.theme-dark .galleryPage .chip{
+  background: rgba(255,255,255,0.08) !important;
+  border-color: rgba(255,255,255,0.18) !important;
+  color: rgba(255,255,255,0.92) !important;
+}
+html.theme-dark .galleryPage .chipX .material-symbols-outlined{
+  color: rgba(255,255,255,0.75) !important;
+}
+
+/* Buttons inside modals */
+html.theme-dark .galleryPage .okBtn,
+html.theme-dark .galleryPage .miniBtn.danger{
+  background: var(--btn-bg) !important;
+  color: var(--btn-text) !important;
+}
+html.theme-dark .galleryPage .miniBtn.ghost{
+  background: transparent !important;
+  border: 1px solid rgba(255,255,255,0.25) !important;
+  color: rgba(255,255,255,0.92) !important;
+}

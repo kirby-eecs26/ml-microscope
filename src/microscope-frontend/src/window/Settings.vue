@@ -33,6 +33,7 @@
             <select id="themeSelect" v-model="selectedTheme" class="themeDropdown">
               <option value="system">System</option>
               <option value="dark">Dark Mode</option>
+              <option value="light">Light Mode</option>
             </select>
           </div>
         </div>
@@ -181,18 +182,28 @@
             <h3 class="previewTitle">Live Preview</h3>
 
             <div class="previewBox">
-              <img
-                class="mjpegPreview"
-                :src="mjpegUrl"
-                alt="Live camera preview"
-                @error="onPreviewError"
-                @load="onPreviewLoad"
-              />
+
+              <!-- If stream disabled -->
+              <div v-if="disableWebStream" class="notConnected">
+                Web stream disabled
+              </div>
+
+              <!-- Otherwise show stream -->
+              <template v-else>
+                <img
+                  v-if="mjpegUrl"
+                  class="mjpegPreview"
+                  :src="mjpegUrl"
+                  alt="Live camera preview"
+                  @error="onPreviewError"
+                  @load="onPreviewLoad"
+                />
 
               <div v-if="previewError" class="previewError">
                 Preview unavailable. Check microscope connection.
               </div>
-            </div>
+            </template>
+          </div>
 
             <div class="previewHint">
               Live MJPEG stream from the microscope camera.
@@ -224,15 +235,27 @@ function applyTheme(mode) {
 
   // Remove any prior listener
   if (mediaListener) {
-    window.matchMedia("(prefers-color-scheme: dark)").removeEventListener("change", mediaListener);
+    window
+      .matchMedia("(prefers-color-scheme: dark)")
+      .removeEventListener("change", mediaListener);
     mediaListener = null;
   }
 
+  // Always clear both overrides first
+  root.classList.remove("theme-dark", "theme-light");
+
   const setDark = (on) => root.classList.toggle("theme-dark", !!on);
+  const setLight = (on) => root.classList.toggle("theme-light", !!on);
 
   if (mode === "dark") {
     setDark(true);
     localStorage.setItem(THEME_KEY, "dark");
+    return;
+  }
+
+  if (mode === "light") {
+    setLight(true);
+    localStorage.setItem(THEME_KEY, "light");
     return;
   }
 
@@ -248,8 +271,10 @@ function applyTheme(mode) {
 onMounted(() => {
   // Load saved theme
   const saved = localStorage.getItem(THEME_KEY);
-  if (saved === "dark" || saved === "system") {
+  if (saved === "dark" || saved === "light" || saved === "system") {
     selectedTheme.value = saved;
+  } else {
+    selectedTheme.value = "system";
   }
   applyTheme(selectedTheme.value);
 });
@@ -271,6 +296,12 @@ onMounted(() => {
 
 watch(disableWebStream, (val) => {
   localStorage.setItem(STREAM_KEY, val ? "1" : "0");
+
+  if (val) {
+    mjpegUrl.value = "";
+  } else if (activeTab.value === "camera") {
+    loadPreviewUrl();
+  }
 });
 
 /* Camera */
@@ -301,12 +332,20 @@ async function loadPreviewUrl() {
   const info = await getLiveInfo();
   mjpegUrl.value = info.mjpeg_url;
 }
-onMounted(() => {
-  if (activeTab.value === "camera") loadPreviewUrl();
-});
+
+
 watch(activeTab, (t) => {
-  if (t === "camera" && !mjpegUrl.value) loadPreviewUrl();
+  if (t === "camera" && !disableWebStream.value && !mjpegUrl.value) {
+    loadPreviewUrl();
+  }
 });
+
+onMounted(() => {
+  if (activeTab.value === "camera" && !disableWebStream.value) {
+    loadPreviewUrl();
+  }
+});
+
 function onPreviewError() {
   previewError.value = true
 }
