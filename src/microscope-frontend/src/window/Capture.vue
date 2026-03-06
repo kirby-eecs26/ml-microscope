@@ -987,10 +987,16 @@ async function saveVideoToGallery() {
   width: 100%;
 }
 
-.annoRow,
-.tagRow {
+.annoRow {
   display: grid;
   grid-template-columns: 1fr 1fr 34px;
+  gap: 8px;
+  align-items: center;
+}
+
+.tagRow {
+  display: grid;
+  grid-template-columns: 1fr 34px;
   gap: 8px;
   align-items: center;
 }

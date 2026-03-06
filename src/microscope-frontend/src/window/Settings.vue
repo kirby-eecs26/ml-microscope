@@ -25,7 +25,7 @@
     <main class="settingsContent">
       <!-- DISPLAY -->
       <div class="displaySettings" v-if="activeTab === 'display'">
-        <h2 class="contentTitle">Appearance</h2>
+        <h2 class="contentTitle">Display Settings</h2>
 
         <div class="settingGroup">
           <h3 class="settingTitle">Theme</h3>
@@ -55,7 +55,7 @@
 
       <!-- CAMERA -->
       <div class="cameraSettings" v-if="activeTab === 'camera'">
-        <h2 class="contentTitle">Manual Camera Settings</h2>
+        <h2 class="contentTitle">Camera Settings</h2>
 
         <div class="camera-layout">
 
@@ -219,7 +219,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, onMounted, watch } from "vue";
+import { applyTheme, getSavedTheme } from "../utils/theme";
 import CameraPreview from "../components/CameraPreview.vue"
 import { getLiveInfo, microscopeHealth } from "../api/imageApi";
 
@@ -227,56 +228,9 @@ const activeTab = ref('display')
 
 /* Display */
 const selectedTheme = ref('system')
-const THEME_KEY = "app_theme";
-let mediaListener = null;
-
-function applyTheme(mode) {
-  const root = document.documentElement; // <html>
-
-  // Remove any prior listener
-  if (mediaListener) {
-    window
-      .matchMedia("(prefers-color-scheme: dark)")
-      .removeEventListener("change", mediaListener);
-    mediaListener = null;
-  }
-
-  // Always clear both overrides first
-  root.classList.remove("theme-dark", "theme-light");
-
-  const setDark = (on) => root.classList.toggle("theme-dark", !!on);
-  const setLight = (on) => root.classList.toggle("theme-light", !!on);
-
-  if (mode === "dark") {
-    setDark(true);
-    localStorage.setItem(THEME_KEY, "dark");
-    return;
-  }
-
-  if (mode === "light") {
-    setLight(true);
-    localStorage.setItem(THEME_KEY, "light");
-    return;
-  }
-
-  // system
-  const mq = window.matchMedia("(prefers-color-scheme: dark)");
-  setDark(mq.matches);
-  localStorage.setItem(THEME_KEY, "system");
-
-  mediaListener = (e) => setDark(e.matches);
-  mq.addEventListener("change", mediaListener);
-}
 
 onMounted(() => {
-  // Load saved theme
-  const saved = localStorage.getItem(THEME_KEY);
-  if (saved === "dark" || saved === "light" || saved === "system") {
-    selectedTheme.value = saved;
-  } else {
-    selectedTheme.value = "system";
-  }
-  applyTheme(selectedTheme.value);
+  selectedTheme.value = getSavedTheme();
 });
 
 watch(selectedTheme, (val) => {
