@@ -147,7 +147,7 @@ Run Cellular Imaging Studio Setup {v_number}.exe
 
 ## Application Instructions
 
-*Link to User Manual.*
+[Cellular Imaging Studio User Manual](https://github.com/kirby-eecs26/ml-microscope/blob/dev/docs/User%20Manual.pdf)
 
 ## Submodule Policy
 
