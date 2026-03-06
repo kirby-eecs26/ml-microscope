@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
 const { spawn } = require("child_process");
 const waitOn = require("wait-on");
@@ -39,6 +39,11 @@ async function createWindow() {
     backgroundColor: "#111111",
     title: PROJECT_NAME,
     icon: path.join(__dirname, "assets", "icon.ico"),
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
   });
 
   await waitOn({
@@ -50,6 +55,10 @@ async function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  ipcMain.handle("app:quit", async () => {
+    app.quit();
+  });
+
   startBackend();
   await createWindow();
 

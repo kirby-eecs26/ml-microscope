@@ -372,9 +372,8 @@ def render_motion_tracks_overlay(video_path: str, out_path: str, cfg: Optional[M
     fps = cap.get(cv2.CAP_PROP_FPS) or 0.0
     if fps <= 0:
         fps = 30.0
-
+    step = 1
     out_fps = float(fps)
-
     ok, first = cap.read()
     if not ok:
         cap.release()
@@ -397,7 +396,6 @@ def render_motion_tracks_overlay(video_path: str, out_path: str, cfg: Optional[M
     prev_g = None
     prev_centroids: List[Tuple[float, float]] = []
     frame_idx = 0
-    step = max(int(round(fps / cfg.sample_fps)), 1)
     frames_written = 0
 
     while True:

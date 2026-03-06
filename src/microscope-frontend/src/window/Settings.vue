@@ -388,7 +388,7 @@ async function checkMicroscopeConnection() {
   try {
     // Pick a lightweight endpoint your backend definitely serves.
     // If you already have a known "ping" route, replace this with that.
-    await requestJson("GET", "/status")
+    await requestJson("GET", "/health")
     microscopeConnected.value = true
   } catch (e) {
     microscopeConnected.value = false
@@ -432,22 +432,25 @@ async function applyCameraSettings() {
 
 async function runCalibration(kind) {
   const routes = {
-    FULL_AUTO_CALIBRATE: '/settings/calibration/full_autocalibrate',
-    AUTO_GAIN_SHUTTER: '/settings/calibration/auto_gain_shutter',
-    AUTO_WHITE_BALANCE: '/settings/calibration/auto_white_balance',
-    AUTO_FLAT_FIELD: '/settings/calibration/auto_flat_field',
-    DISABLE_FLAT_FIELD: '/settings/calibration/disable_flat_field',
-  }
-  const url = routes[kind]
+    FULL_AUTO_CALIBRATE: "/settings/calibration/full_autocalibrate",
+    AUTO_GAIN_SHUTTER: "/settings/calibration/auto_gain_shutter",
+    AUTO_WHITE_BALANCE: "/settings/calibration/auto_white_balance",
+    AUTO_FLAT_FIELD: "/settings/calibration/auto_flat_field",
+    DISABLE_FLAT_FIELD: "/settings/calibration/disable_flat_field",
+  };
+  const url = routes[kind];
+  console.log("runCalibration kind:", kind);
+  console.log("runCalibration url:", url);
+
   if (!url) {
-    console.warn('Unknown calibration kind:', kind)
-    return
+    console.error("Unknown calibration kind:", kind);
+    return;
   }
   try {
-    const out = await postJson(url)
-    console.log('CALIBRATION OK', kind, out)
+    const out = await requestJson("POST", url);
+    console.log("CALIBRATION OK", kind, out);
   } catch (e) {
-    console.error('CALIBRATION ERROR', kind, e)
+    console.error("CALIBRATION ERROR", kind, e);
   }
 }
 

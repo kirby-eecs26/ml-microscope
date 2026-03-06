@@ -62,15 +62,21 @@ function openExitModal() {
 function closeExitModal() {
   exitModalVisible.value = false;
 }
+async function shutdown() {
+  try {
+    closeExitModal();
 
-function shutdown() {
-  console.log('Shutdown clicked – not implemented');
-  closeExitModal(); 
-  router.push('/');
+    if (window.electronAPI?.quitApp) {
+      await window.electronAPI.quitApp();
+      return;
+    }
+    window.close();
+  } catch (e) {
+    console.error('Shutdown failed:', e);
+  }
 }
 
 function restart() {
-  console.log('Restart clicked – not implemented');
   closeExitModal();
   router.push('/');
 }

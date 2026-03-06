@@ -485,12 +485,32 @@ async function saveImageToGallery() {
 }
 
 // ----- Video functions -----
+async function waitForMotionClipDone(id) {
+  const base = import.meta.env.VITE_API_BASE || "";
+  while (true) {
+    const res = await fetch(`${base}/video/${encodeURIComponent(id)}/status`);
+    if (!res.ok) throw new Error("Failed to read video status");
+
+    const status = await res.json();
+    console.log("[video] status:", status);
+
+    if (status.done) {
+      await stopRecording(true);
+      return;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+}
+
 async function startRecording() {
   try {
     videoBusy.value = true;
     videoBusyMode.value = "start";
     videoStatus.value = "Starting recording...";
+
     const isMotion = motionClipOn.value;
+
     const payload = {
       fpm: isMotion ? MOTION_FPM : frameRate.value,
       max_frames: isMotion ? MOTION_FRAMES : 300,
@@ -504,17 +524,19 @@ async function startRecording() {
       null;
     console.log("[video] start result:", result);
     console.log("[video] recordingId:", recordingId.value, "isMotion:", isMotion, "t:", Date.now());
-
     if (!recordingId.value) {
       throw new Error("Start succeeded but no recording id returned from backend");
     }
     recording.value = true;
-    videoStatus.value = isMotion ? "Recording motion clip..." : "Recording...";
     if (isMotion) {
-      if (motionStopTimer.value) clearTimeout(motionStopTimer.value);
-      motionStopTimer.value = setTimeout(() => {
-        if (recording.value && recordingId.value) stopRecording(true);
-      }, MOTION_SECONDS * 1000);
+      videoStatus.value = "Recording motion clip until 125 frames are captured...";
+      waitForMotionClipDone(recordingId.value).catch((e) => {
+        console.error("[video] motion wait failed:", e);
+        recording.value = false;
+        videoStatus.value = `Motion clip failed: ${e?.message ?? e}`;
+      });
+    } else {
+      videoStatus.value = "Recording...";
     }
   } catch (e) {
     console.error(e);

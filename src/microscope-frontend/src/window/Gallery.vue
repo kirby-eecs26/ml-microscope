@@ -287,7 +287,9 @@
               <!-- VIDEO -->
               <video
                 v-else
-                :key="(videoOverlayOn ? 'tracks' : 'orig') + '-' + (analysisItem?.id || '')"
+                :key="videoOverlayOn
+                  ? `tracks-${analysisResult?.overlayVideoUrl || ''}`
+                  : `orig-${analysisItem?.url || ''}`"
                 class="viewerImg"
                 :src="videoOverlayOn && analysisResult?.overlayVideoUrl
                   ? analysisResult.overlayVideoUrl
@@ -877,10 +879,35 @@ async function downloadOne(img) {
   }
 }
 
-function downloadAnnotationsCsv(item) {
-  const itemType = item.type === "video" ? "video" : "capture";
-  const url = `${API_BASE}/export/annotations/${itemType}/${encodeURIComponent(item.id)}`;
-  window.open(url, "_blank");
+async function downloadAnnotationsCsv(item) {
+  try {
+    const itemType = item.type === "video" ? "video" : "capture";
+    const url = `${API_BASE}/export/annotations/${itemType}/${encodeURIComponent(item.id)}`;
+
+    const res = await fetch(url);
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(text || `CSV download failed (${res.status})`);
+    }
+
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+
+    const rawName = (item.name || `${itemType}_${item.id}`).trim();
+    const safeName = rawName.replace(/[^\w.-]+/g, "_");
+    const filename = `${safeName}_annotations.csv`;
+
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    URL.revokeObjectURL(objectUrl);
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 
@@ -1034,7 +1061,11 @@ async function runAnalysis(item) {
       const base = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
       const overlayVideoUrlRaw = res.overlayVideoUrl ?? null;
       const overlayVideoUrl = overlayVideoUrlRaw
-        ? (overlayVideoUrlRaw.startsWith("http") ? overlayVideoUrlRaw : `${base}${overlayVideoUrlRaw}`)
+        ? (
+            overlayVideoUrlRaw.startsWith("http")
+              ? `${overlayVideoUrlRaw}${overlayVideoUrlRaw.includes("?") ? "&" : "?"}t=${Date.now()}`
+              : `${base}${overlayVideoUrlRaw}?t=${Date.now()}`
+          )
         : null;
       analysisResult.value = {
         kind: "video",
@@ -1129,6 +1160,8 @@ async function saveAnalysis() {
 async function setSensitivity(level) {
   motionSensitivity.value = level;
   if (!analysisItem.value || analysisItem.value.type !== "video") return;
+  videoOverlayOn.value = false;
+  analysisResult.value = null;
   await runAnalysis(analysisItem.value);
 }
 
