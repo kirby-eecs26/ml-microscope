@@ -211,6 +211,25 @@ button,
 
 /* Gallery search bar */
 
+html:not(.theme-dark) .galleryPage input::placeholder {
+  color: #666 !important;
+  opacity: 1 !important;
+}
+
+html:not(.theme-dark) .galleryPage input::-webkit-input-placeholder {
+  color: #666 !important;
+}
+html:not(.theme-dark) .galleryPage input::-moz-placeholder {
+  color: #666 !important;
+  opacity: 1 !important;
+}
+html:not(.theme-dark) .galleryPage input:-ms-input-placeholder {
+  color: #666 !important;
+}
+html:not(.theme-dark) .galleryPage input::-ms-input-placeholder {
+  color: #666 !important;
+}
+
 html.theme-dark .galleryTopBar,
 html.theme-dark .galleryHeader,
 html.theme-dark .topBar,
@@ -399,16 +418,6 @@ html.theme-dark .capturePage .videoModalTitle {
   opacity: 1 !important;
 }
 
-/* Capture modals: lighten the dark grey input/textarea boxes 
-html.theme-dark .capturePage .imageModal .textInput,
-html.theme-dark .capturePage .videoModal .textInput,
-html.theme-dark .capturePage .imageModal .textArea,
-html.theme-dark .capturePage .videoModal .textArea,
-html.theme-dark .capturePage .miniInput {
-  background: #e9e9e9 !important;  
-  color: #111 !important;
-  border-color: #bdbdbd !important;
-} */
 
 /* Capture modal placeholder text darker */
 
@@ -613,3 +622,6 @@ html.theme-dark .galleryPage .miniBtn.ghost{
   border: 1px solid rgba(255,255,255,0.25) !important;
   color: rgba(255,255,255,0.92) !important;
 }
+
+
+
