@@ -1,8 +1,8 @@
 {
   "name": "cellular-imaging-studio",
   "productName": "Cellular Imaging Studio",
-  "version": "1.0.0",
-  "description": "OpenFlexure AI Microscope Desktop Application",
+  "version": "0.1.0",
+  "description": "Cellular Imaging Studio Desktop Application",
   "main": "main.js",
   "author": "",
   "license": "ISC",
@@ -52,7 +52,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "OpenFlexure AI Microscope"
+      "shortcutName": "Cellular Imaging Studio"
     }
   }
 }
