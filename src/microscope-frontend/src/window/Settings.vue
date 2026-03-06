@@ -382,24 +382,6 @@ async function requestJson(method, path, body = null) {
   return res.json().catch(() => ({}));
 }
 
-const microscopeConnected = ref(true)
-
-async function checkMicroscopeConnection() {
-  try {
-    // Pick a lightweight endpoint your backend definitely serves.
-    // If you already have a known "ping" route, replace this with that.
-    await requestJson("GET", "/health")
-    microscopeConnected.value = true
-  } catch (e) {
-    microscopeConnected.value = false
-  }
-}
-
-onMounted(() => {
-  checkMicroscopeConnection()
-  // Optional: keep it updated
-  setInterval(checkMicroscopeConnection, 3000)
-})
 
 function saveDisplaySettings() {
   console.log('APPLY DISPLAY', {
