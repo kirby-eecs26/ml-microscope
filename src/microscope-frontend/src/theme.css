@@ -430,6 +430,12 @@ html.theme-dark .capturePage textarea::placeholder {
   opacity: 1 !important;
 }
 
+.capturePage .textInput::placeholder,
+.capturePage .textArea::placeholder {
+  color: #555 !important;
+  opacity: 1 !important;
+}
+
 html.theme-dark .galleryPage .topbar,
 body.theme-dark .galleryPage .topbar,
 .theme-dark .galleryPage .topbar{
