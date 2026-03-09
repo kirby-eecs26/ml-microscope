@@ -189,6 +189,11 @@ textarea{
 
 input::placeholder,
 textarea::placeholder{
+  color: rgba(0,0,0,0.45);
+}
+
+html.theme-dark input::placeholder,
+html.theme-dark textarea::placeholder{
   color: rgba(255,255,255,0.55);
 }
 
@@ -395,8 +400,14 @@ html.theme-dark .capturePage .imageModal .modalLabel,
 html.theme-dark .capturePage .videoModal .modalLabel,
 html.theme-dark .capturePage .imageModalTitle,
 html.theme-dark .capturePage .videoModalTitle {
-  color: #111 !important;   /* darker text */
+  color: #ffffff !important;
   opacity: 1 !important;
+}
+
+/* Capture modal close button */
+html.theme-dark .capturePage .imageModal .closeX,
+html.theme-dark .capturePage .videoModal .closeX {
+  color: #ffffff !important;
 }
 
 /* Capture modals: lighten the dark grey input/textarea boxes 

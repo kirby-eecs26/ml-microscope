@@ -32,11 +32,18 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, onUnmounted } from "vue";
 import { getLiveInfo, microscopeHealth } from "../api/imageApi";
+
+const STREAM_KEY = "disable_web_stream";
 
 const mjpegUrl = ref("");
 const error = ref("");
+const webStreamDisabled = ref(false);
+
+function readWebStreamPref() {
+  webStreamDisabled.value = localStorage.getItem(STREAM_KEY) === "1";
+}
 
 function onImgError() {
   error.value =
@@ -44,22 +51,48 @@ function onImgError() {
   mjpegUrl.value = "";
 }
 
-onMounted(async () => {
+function onWebStreamPrefChanged() {
+  readWebStreamPref();
+
+  if (webStreamDisabled.value) {
+    mjpegUrl.value = "";
+    error.value = "";
+  } else {
+    loadPreview();
+  }
+}
+
+async function loadPreview() {
   try {
-    // 1) quick check (optional but gives nicer error)
+    error.value = "";
+    if (webStreamDisabled.value) {
+      mjpegUrl.value = "";
+      return;
+    }
     const ok = await microscopeHealth().catch(() => false);
     if (!ok) {
       error.value =
         "Microscope not connected. Plug it in / join its network, then reopen.";
+      mjpegUrl.value = "";
       return;
     }
-
-    // 2) ask backend for the direct URL (no proxy)
     const info = await getLiveInfo();
-    mjpegUrl.value = info.mjpeg_url; // e.g. http://microscope.local:5000/api/v2/streams/mjpeg
+    mjpegUrl.value = info.mjpeg_url;
   } catch (e) {
     error.value = e?.message ?? String(e);
+    mjpegUrl.value = "";
   }
+}
+
+onMounted(() => {
+  readWebStreamPref();
+  loadPreview();
+
+  window.addEventListener("web-stream-pref-changed", onWebStreamPrefChanged);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("web-stream-pref-changed", onWebStreamPrefChanged);
 });
 </script>
 

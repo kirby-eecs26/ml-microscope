@@ -220,9 +220,9 @@ onMounted(refreshLogs);
   opacity: 0.95;
 }
 
-.logLevel[data-level="ERROR"] { background: rgba(220, 60, 60, 0.25); }
-.logLevel[data-level="WARNING"] { background: rgba(255, 170, 0, 0.20); }
-.logLevel[data-level="INFO"] { background: rgba(80, 160, 255, 0.18); }
+.logLevel[data-level="ERROR"] { background: rgba(221, 27, 27, 0.637); }
+.logLevel[data-level="WARNING"] { background: rgba(255, 170, 0, 0.733); }
+.logLevel[data-level="INFO"] { background: rgba(80, 159, 255, 0.733); }
 .logLevel[data-level="DEBUG"] { background: rgba(180, 180, 180, 0.12); }
 
 .logMsg {

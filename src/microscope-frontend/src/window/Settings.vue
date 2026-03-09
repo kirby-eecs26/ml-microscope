@@ -250,7 +250,7 @@ onMounted(() => {
 
 watch(disableWebStream, (val) => {
   localStorage.setItem(STREAM_KEY, val ? "1" : "0");
-
+  window.dispatchEvent(new CustomEvent("web-stream-pref-changed"));
   if (val) {
     mjpegUrl.value = "";
   } else if (activeTab.value === "camera") {

@@ -89,11 +89,11 @@
                  <!-- Add Tag chip (always at end/right of the row) -->
                 <button
                   class="tagChip tagAddChip"
-                  @click.stop="openAddTag(img)"
-                  title="Add tag"
+                  @click.stop="openEditMetadata(img)"
+                  title="Edit metadata"
                   type="button"
                 >
-                  + ADD
+                  EDIT
                 </button>
             </div>
           </div>
@@ -456,6 +456,81 @@
       </div>
     </div>
 
+    <div v-if="editOpen" class="backdrop" @click.self="closeEditMetadata">
+      <div class="modal" @click.stop>
+        <div class="modalTitle">Edit Metadata</div>
+
+        <div class="rowLine"><b>Name:</b> {{ editItem?.name }}</div>
+        <div class="rowLine"><b>ID:</b> {{ editItem?.id }}</div>
+        <div class="rowLine"><b>Type:</b> {{ editItem?.type }}</div>
+
+        <div class="divider"></div>
+
+        <div class="section">
+          <div class="label">Notes</div>
+          <textarea
+            class="textArea"
+            v-model="editNotes"
+            placeholder="Notes"
+          ></textarea>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="section">
+          <div class="label">Annotations</div>
+          <div class="annoRow">
+            <input class="miniInput" v-model="editAnnoKey" placeholder="key" />
+            <input class="miniInput" v-model="editAnnoValue" placeholder="value" />
+            <button class="plusBtn" @click="addEditAnnotation">
+              <span class="material-symbols-outlined">add_circle</span>
+            </button>
+          </div>
+
+          <div class="chips" v-if="editAnnotations.length">
+            <div class="chip" v-for="(a, i) in editAnnotations" :key="i">
+              {{ a.key }}: {{ a.value }}
+              <button class="chipX" @click="editAnnotations.splice(i, 1)">
+                <span class="material-symbols-outlined">close</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="section">
+          <div class="label">Tags</div>
+          <div class="tagRow">
+            <input class="miniInput" v-model="editTagInput" placeholder="tag" />
+            <button class="plusBtn" @click="addEditTag">
+              <span class="material-symbols-outlined">add_circle</span>
+            </button>
+          </div>
+
+          <div class="chips" v-if="editTags.length">
+            <div class="chip" v-for="(t, i) in editTags" :key="i">
+              {{ t }}
+              <button class="chipX" @click="editTags.splice(i, 1)">
+                <span class="material-symbols-outlined">close</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="editError" class="miniError">{{ editError }}</div>
+
+        <div class="modalFooter">
+          <button class="miniBtn ghost" @click="closeEditMetadata" :disabled="editBusy">
+            Cancel
+          </button>
+          <button class="okBtn" @click="saveEditMetadata" :disabled="editBusy">
+            {{ editBusy ? "Saving..." : "Save" }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Add Tag Modal -->
     <div v-if="addTagOpen" class="backdrop" @click.self="closeAddTag">
       <div class="miniModal" @click.stop>
@@ -607,7 +682,21 @@ const addTagValue = ref("");
 const zipBusy = ref(false);
 const zipReady = ref(false);
 const zipId = ref(null);
-const zipError = ref(""); 
+const zipError = ref("");
+
+/** Edit Modal */
+const editOpen = ref(false);
+const editItem = ref(null);
+const editBusy = ref(false);
+const editError = ref("");
+
+const editNotes = ref("");
+const editAnnotations = ref([]);
+const editTags = ref([]);
+
+const editAnnoKey = ref("");
+const editAnnoValue = ref("");
+const editTagInput = ref("");
 
 const API_BASE =
   import.meta.env.VITE_API_BASE ||
@@ -651,6 +740,65 @@ function onVideoMeta(e) {
 function onVideoCanPlay(e) {
   const v = e?.target;
   console.log("[video] canplay", { src: v?.currentSrc, t: Date.now() });
+}
+
+function openEditMetadata(item) {
+  editItem.value = item;
+  editError.value = "";
+  editBusy.value = false;
+
+  const ann = { ...(item?.raw?.annotations || {}) };
+  editNotes.value = ann.Notes ? String(ann.Notes) : "";
+  delete ann.Notes;
+
+  editAnnotations.value = Object.entries(ann).map(([key, value]) => ({
+    key: String(key),
+    value: String(value ?? ""),
+  }));
+
+  editTags.value = Array.isArray(item?.tags)
+    ? item.tags.map(t => String(t).trim()).filter(Boolean)
+    : [];
+
+  editAnnoKey.value = "";
+  editAnnoValue.value = "";
+  editTagInput.value = "";
+
+  editOpen.value = true;
+}
+
+function closeEditMetadata(force = false) {
+  if (editBusy.value && !force) return;
+
+  editOpen.value = false;
+  editItem.value = null;
+  editError.value = "";
+  editNotes.value = "";
+  editAnnotations.value = [];
+  editTags.value = [];
+  editAnnoKey.value = "";
+  editAnnoValue.value = "";
+  editTagInput.value = "";
+}
+
+function addEditAnnotation() {
+  const key = editAnnoKey.value.trim();
+  const value = editAnnoValue.value.trim();
+  if (!key) return;
+
+  editAnnotations.value.push({ key, value });
+  editAnnoKey.value = "";
+  editAnnoValue.value = "";
+}
+
+function addEditTag() {
+  const t = editTagInput.value.trim();
+  if (!t) return;
+
+  if (!editTags.value.includes(t)) {
+    editTags.value.push(t);
+  }
+  editTagInput.value = "";
 }
 
 /**
@@ -706,6 +854,77 @@ function getAnnotationPairs(img) {
   return Object.entries(ann)
     .filter(([k]) => k && k !== "Notes") // Notes displayed separately
     .map(([k, v]) => ({ key: String(k), value: String(v ?? "") }));
+}
+
+async function saveEditMetadata() {
+  if (!editItem.value) return;
+
+  editBusy.value = true;
+  editError.value = "";
+
+  try {
+    const base = import.meta.env.VITE_API_BASE || "";
+
+    const annotations = {};
+    for (const a of editAnnotations.value) {
+      const key = String(a.key || "").trim();
+      if (!key) continue;
+      annotations[key] = String(a.value ?? "");
+    }
+
+    if (editNotes.value.trim()) {
+      annotations["Notes"] = editNotes.value.trim();
+    }
+
+    const tags = Array.from(
+      new Set(
+        editTags.value
+          .map(t => String(t).trim())
+          .filter(t => t && t !== "temporary")
+      )
+    );
+
+    if (editItem.value.type === "video") {
+      const res = await fetch(`${base}/video/${encodeURIComponent(editItem.value.id)}/metadata`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: editItem.value.name,
+          notes: editNotes.value.trim(),
+          annotations,
+          tags,
+        }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(text || `Failed to update video metadata (${res.status})`);
+      }
+    } else {
+      const res = await fetch(`${base}/captures/${encodeURIComponent(editItem.value.id)}/metadata`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: editItem.value.name,
+          notes: editNotes.value.trim(),
+          annotations,
+          tags,
+        }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(text || `Failed to update image metadata (${res.status})`);
+      }
+    }
+
+    await refreshAll();
+    closeEditMetadata(true);
+  } catch (e) {
+    editError.value = String(e?.message || e);
+  } finally {
+    editBusy.value = false;
+  }
 }
 
 function askRemoveTag(img, tag) {
@@ -1652,6 +1871,7 @@ html.theme-dark .pageBtn{
 .modalFooter {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
   margin-top: 16px;
 }
 

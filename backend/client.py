@@ -50,6 +50,9 @@ VIDEO_OVERLAY_CACHE: dict[str, str] = {}
 ZIP_DIR = Path(__file__).resolve().parent / "zips"
 ZIP_DIR.mkdir(parents=True, exist_ok=True)
 
+CAPTURE_META_DIR = Path(__file__).resolve().parent / "saved_captures_meta"
+CAPTURE_META_DIR.mkdir(parents=True, exist_ok=True)
+
 app = FastAPI(title="ML Microscope Backend")
 
 # - In dev, Vue runs at http://localhost:5173 and calls this backend at http://localhost:8000
@@ -143,6 +146,50 @@ def _ensure_ext(filename: str, ext: str) -> str:
         return filename
     return filename + ext
 
+def _capture_meta_path(capture_id: str) -> Path:
+    return CAPTURE_META_DIR / f"{capture_id}.json"
+
+
+def _load_capture_meta_override(capture_id: str) -> dict:
+    p = _capture_meta_path(capture_id)
+    if not p.exists():
+        return {}
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _save_capture_meta_override(capture_id: str, data: dict) -> None:
+    p = _capture_meta_path(capture_id)
+    p.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def _merge_capture_with_override(capture: dict) -> dict:
+    if not isinstance(capture, dict):
+        return capture
+
+    cid = capture.get("id")
+    if not cid:
+        return capture
+
+    override = _load_capture_meta_override(cid)
+    if not override:
+        return capture
+
+    merged = dict(capture)
+
+    if "name" in override:
+        merged["name"] = override["name"]
+
+    if "annotations" in override and isinstance(override["annotations"], dict):
+        merged["annotations"] = override["annotations"]
+
+    if "tags" in override and isinstance(override["tags"], list):
+        merged["tags"] = override["tags"]
+
+    return merged
+
 
 # -----------------------
 # API routes
@@ -181,7 +228,8 @@ def live_stream():
 @app.get("/captures")
 def captures():
     try:
-        data = server.listCaptures()
+        data = server.listCaptures() or []
+        data = [_merge_capture_with_override(c) for c in data]
         return {"captures": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -447,26 +495,71 @@ def delete_video_tag(video_id: str, tag: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Delete video tag failed: {e}")
+    
+@app.put("/video/{video_id}/metadata")
+def update_video_metadata(video_id: str, req: SaveCaptureRequest):
+    try:
+        meta_path = SAVED_VIDEOS_DIR / f"{video_id}.json"
+        if not meta_path.exists():
+            raise HTTPException(status_code=404, detail="Video metadata not found")
+
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+
+        if req.filename:
+            meta["name"] = req.filename.strip()
+
+        ann = dict(req.annotations or {})
+
+        if req.notes is not None:
+            if req.notes.strip():
+                ann["Notes"] = req.notes.strip()
+            else:
+                ann.pop("Notes", None)
+
+        meta["annotations"] = ann
+        meta["tags"] = [str(t).strip() for t in (req.tags or []) if str(t).strip() and str(t).strip() != "temporary"]
+
+        meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+
+        return {"ok": True, "video": meta}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Update video metadata failed: {e}")
 
    
 @app.put("/captures/{capture_id}/metadata")
 def update_capture_metadata(capture_id: str, req: SaveCaptureRequest):
     try:
-        ann = dict(req.annotations or {})
-        if req.notes:
-            ann["Notes"] = req.notes
-        if req.filename:
-            ann["DisplayName"] = req.filename
-        ann_url = f"{server.API_BASE}api/v2/captures/{capture_id}/annotations"
-        r1 = requests.put(ann_url, json=ann, timeout=15)
-        r1.raise_for_status()
-        if req.tags is not None:
-            tags = [t for t in (req.tags or []) if t and t != "temporary"]
-            if len(tags) > 0:
-                tags_url = f"{server.API_BASE}api/v2/captures/{capture_id}/tags"
-                r2 = requests.put(tags_url, json=tags, timeout=15)
-                r2.raise_for_status()
-        return {"ok": True, "annotations": ann, "tags": req.tags}
+        meta = requests.get(f"{server.API_BASE}api/v2/captures/{capture_id}", timeout=10)
+        meta.raise_for_status()
+        current = meta.json()
+
+        annotations = dict(req.annotations or {})
+        if req.notes is not None:
+            if req.notes.strip():
+                annotations["Notes"] = req.notes.strip()
+            else:
+                annotations.pop("Notes", None)
+
+        tags = [
+            str(t).strip()
+            for t in (req.tags or [])
+            if str(t).strip() and str(t).strip() != "temporary"
+        ]
+
+        name = (req.filename or current.get("name") or f"capture_{capture_id}").strip()
+
+        override = {
+            "id": capture_id,
+            "name": name,
+            "annotations": annotations,
+            "tags": tags,
+            "updated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        }
+        _save_capture_meta_override(capture_id, override)
+
+        return {"ok": True, "capture": _merge_capture_with_override(current)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Update metadata failed: {e}")
     
@@ -517,6 +610,14 @@ def center():
 def delete_capture(capture_id: str):
     try:
         ok = server.delete_capture(capture_id)
+
+        meta_path = _capture_meta_path(capture_id)
+        try:
+            if meta_path.exists():
+                meta_path.unlink()
+        except Exception:
+            pass
+
         return {"ok": ok}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -798,7 +899,7 @@ def export_one_annotations(item_type: str, item_id: str):
     if item_type == "capture":
         meta = requests.get(f"{server.API_BASE}api/v2/captures/{item_id}", timeout=10)
         meta.raise_for_status()
-        j = meta.json()
+        j = _merge_capture_with_override(meta.json())
         ann = j.get("annotations") or {}
         name = j.get("name") or f"capture_{item_id}"
 
@@ -991,18 +1092,19 @@ def export_gallery_csv():
         caps = []
 
     for c in caps:
+        c = _merge_capture_with_override(c)
         ann = c.get("annotations") or {}
         tags = c.get("tags") or []
         rows.append({
             "type": "image",
             "id": c.get("id", ""),
-            "name": c.get("name") or ann.get("DisplayName") or "capture",
+            "name": c.get("name") or "capture",
             "time": c.get("time", ""),
             "format": c.get("format") or "jpeg",
             "notes": ann.get("Notes", ""),
             "tags": ";".join([str(t).strip() for t in tags if str(t).strip()]),
             "annotations_json": _safe_json(ann),
-            "analysis_json": "", 
+            "analysis_json": "",
         })
     try:
         for p in SAVED_VIDEOS_DIR.glob("*.json"):
