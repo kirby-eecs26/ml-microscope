@@ -7,4 +7,3 @@ requests
 fastapi
 pydantic
 uvicorn[standard]
-csv

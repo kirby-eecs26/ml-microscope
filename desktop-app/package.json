@@ -46,6 +46,10 @@
       "icon": "assets/icon.ico",
       "signAndEditExecutable": true
     },
+    "mac": {
+    "target": ["dmg", "zip"],
+    "icon": "assets/icon.icns"
+    },
 
     "nsis": {
       "oneClick": false,
