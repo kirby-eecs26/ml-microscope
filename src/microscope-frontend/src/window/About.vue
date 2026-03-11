@@ -4,7 +4,7 @@
         <h1 class="mainTitle">Cellular Imaging Studio</h1>
 
         <div class="section">
-            <p class="version"><strong>App Version:</strong> 0.01</p>
+            <p class="version"><strong>App Version:</strong> 1.0.0</p>
         </div>
 
         <div class="section">
