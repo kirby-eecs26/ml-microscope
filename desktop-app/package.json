@@ -1,7 +1,7 @@
 {
   "name": "cellular-imaging-studio",
   "productName": "Cellular Imaging Studio",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Cellular Imaging Studio Desktop Application",
   "main": "main.js",
   "author": "",
@@ -44,7 +44,7 @@
     "win": {
       "target": "nsis",
       "icon": "assets/icon.ico",
-      "signAndEditExecutable": false
+      "signAndEditExecutable": true
     },
 
     "nsis": {

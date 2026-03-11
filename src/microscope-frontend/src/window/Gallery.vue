@@ -88,12 +88,12 @@
                 </span>
                  <!-- Add Tag chip (always at end/right of the row) -->
                 <button
-                  class="tagChip tagAddChip"
+                  class="tagChip tagAddChip editChip"
                   @click.stop="openEditMetadata(img)"
                   title="Edit metadata"
                   type="button"
                 >
-                  EDIT
+                  <span class="material-symbols-outlined">edit_document</span>
                 </button>
             </div>
           </div>
@@ -1885,6 +1885,14 @@ html.theme-dark .pageBtn{
   font-weight: 800;
   font-size: 12px;
   cursor: pointer;
+}
+
+.editChip {
+  padding: 4px 6px;
+}
+
+.editChip .material-symbols-outlined {
+  font-size: 16px;
 }
 
 /* Analysis modal */
